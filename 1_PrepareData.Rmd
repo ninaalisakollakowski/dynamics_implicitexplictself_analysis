@@ -11,16 +11,22 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Spatial Contingency Data
 
-```{r cars}
-summary(cars)
+```{r}
+library(dplyr)
+load("Z:/Längsschnitt Selbst/Auswertung/T1/Body Ownership_Behavioural/RScripts/allData.RData")
+spatialContingencyData <- Result %>%
+  group_by(id, view) %>%
+  summarise(looking_s = sum(lookingDuration),
+            legMovement_s = sum(legMovementDuration)) %>%
+  filter(view != "away") %>%
+  tidyr::pivot_wider(names_from = view, values_from = c("looking_s", "legMovement_s")) %>%
+  mutate(lookingScore = looking_s_mirrored/(looking_s_mirrored + looking_s_ego),
+         legMovementScore = legMovement_s_mirrored/(legMovement_s_mirrored + legMovement_s_ego)) %>%
+  select(id, lookingScore, legMovementScore)
+```
+## Temporal Contingency Data
+
+```{r}
+
 ```
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
