@@ -151,3 +151,16 @@ rm(list = c("n_bins",
             "fnirsData_ROI_long"))
 ```
 
+## Reaching to the Self Data
+
+```{r}
+library(dplyr)
+load("Z:/Längsschnitt Selbst/Auswertung/T2/Reaching/RScripts/allData.RData")
+reachingToSelfData <- Result %>%
+  filter(!is.na(Contact_Success)) %>%
+  group_by(ID, Target_Location_general) %>%
+  summarise(n_trials = n(),
+            proportionContact = sum(Contact_Success)/n_trials) %>%
+  select(-n_trials) %>%
+  tidyr::pivot_wider(names_from = Target_Location_general, values_from = proportionContact)
+```
