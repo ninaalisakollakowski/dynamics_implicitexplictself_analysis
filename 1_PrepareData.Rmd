@@ -4,11 +4,6 @@ author: "Nina-Alisa Kollakowski"
 date: "`r Sys.Date()`"
 output: html_document
 ---
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
 ## Spatial Contingency Data
 
 ```{r}
@@ -17,11 +12,11 @@ load("Z:/Längsschnitt Selbst/Auswertung/T1/Body Ownership_Behavioural/RScripts/
 spatialContingencyData <- Result %>%
   group_by(id, view) %>%
   summarise(looking_s = sum(lookingDuration),
-            legMovement_s = sum(legMovementDuration)) %>%
+            legMovement_s = sum(legMovementDuration)) %>% #sum data by condition
   filter(view != "away") %>%
   tidyr::pivot_wider(names_from = view, values_from = c("looking_s", "legMovement_s")) %>%
   mutate(lookingScore = looking_s_mirrored/(looking_s_mirrored + looking_s_ego),
-         legMovementScore = legMovement_s_mirrored/(legMovement_s_mirrored + legMovement_s_ego)) %>%
+         legMovementScore = legMovement_s_mirrored/(legMovement_s_mirrored + legMovement_s_ego)) %>% #create contingency preference scores
   select(id, lookingScore, legMovementScore)
 rm(Result)
 ```
@@ -32,8 +27,127 @@ library(dplyr)
 load("Z:/Längsschnitt Selbst/Auswertung/T1/fNIRS/AttentionCoding/lookingData.RData")
 temporalContingencyData_looking <- looking_data %>%
   select(ID, condition, mean_looking) %>%
-  tidyr::pivot_wider(names_from = condition, values_from = mean_looking) %>%
+  tidyr::pivot_wider(names_from = condition, values_from = mean_looking) %>% #create contingency preference score
   mutate(lookingScore = delayed/(delayed + online)) %>%
   select(ID, lookingScore)
 rm(looking_data)
 ```
+
+## Temporal Contingency Data - fNIRS
+```{r create time bins}
+library(dplyr)
+load("Z:/Längsschnitt Selbst/Auswertung/T1/fNIRS/RScripts/ROIData.RData")
+n_bins <- 10
+fnirsData_binned <- fnirsData_ROI_long %>%
+  mutate(bins = ntile(time, n = n_bins)) %>%
+  group_by(subject, condition, hemisphere, bins) %>%
+  summarise(HbO = mean(HbO),
+            HbR = mean(HbR))
+fnirsData_binned$bins <- as.factor(fnirsData_binned$bins)
+fnirsData_binned$condition <- droplevels(fnirsData_binned$condition)
+```
+
+```{r analyze left HbO}
+#ANOVA
+timeAnova_left_HbO <- ez::ezANOVA(fnirsData_binned[fnirsData_binned$hemisphere == "l",],
+                          dv = HbO,
+                          wid = subject,
+                          within = c(bins, condition))
+print(timeAnova_left_HbO)
+
+#Post-Hoc T-Tests of time bins
+bins_left_HbO <- data.frame(matrix(nrow = n_bins, ncol = 3))
+colnames(bins_left_HbO) <- c("bins", "t", "p")
+bins_left_HbO$bins <- 1:n_bins
+for (i in levels(fnirsData_binned$bins)){
+  currentTest <- fnirsData_binned %>%
+    filter(bins == i,
+           hemisphere == "l") %>%
+    t.test(HbO ~ condition, data = ., paired = TRUE)
+  bins_left_HbO[i, "p"] <- currentTest$p.value
+  bins_left_HbO[i, "t"] <- currentTest$statistic
+}
+
+#compute difference score between conditions in significant time bins
+left_HbO_diff <- fnirsData_binned %>%
+  filter(hemisphere == "l",
+         bins %in%  which(bins_left_HbO$p < 0.05)) %>%
+  group_by(subject, condition) %>%
+  summarise(m_HbO = mean(HbO)) %>%
+  select(subject, condition, m_HbO) %>%
+  tidyr::pivot_wider(names_from = condition, values_from = m_HbO) %>%
+  mutate(leftHbOScore = delayed - online) %>%
+  select(subject, leftHbOScore)
+  
+```
+
+```{r analyze right HbO}
+#ANOVA HbO right hemisphere
+timeAnova_right_HbO <- ez::ezANOVA(fnirsData_binned[fnirsData_binned$hemisphere == "r",],
+                           dv = HbO,
+                           wid = subject,
+                           within = c(bins, condition))
+print(timeAnova_right_HbO)
+
+bins_right_HbO <- data.frame(matrix(nrow = n_bins, ncol = 3))
+colnames(bins_right_HbO) <- c("bins","t", "p")
+bins_right_HbO$bins <- 1:n_bins
+for (i in levels(fnirsData_binned$bins)){
+  currentTest <- fnirsData_binned %>%
+    filter(bins == i,
+           hemisphere == "r") %>%
+    t.test(HbO ~ condition, data = ., paired = TRUE)
+  bins_right_HbO[i, "p"] <- currentTest$p.value
+  bins_right_HbO[i, "t"] <- currentTest$statistic
+}
+
+#compute difference score between conditions in significant time bins
+right_HbO_diff <- fnirsData_binned %>%
+  filter(hemisphere == "r",
+         bins %in%  which(bins_left_HbO$p < 0.05)) %>%
+  group_by(subject, condition) %>%
+  summarise(m_HbO = mean(HbO)) %>%
+  select(subject, condition, m_HbO) %>%
+  tidyr::pivot_wider(names_from = condition, values_from = m_HbO) %>%
+  mutate(rightHbOScore = delayed - online) %>%
+  select(subject, rightHbOScore)
+
+```
+
+```{r analyze left HbR}
+timeAnova_left_HbR <- ez::ezANOVA(fnirsData_binned[fnirsData_binned$hemisphere == "l",],
+                          dv = HbR,
+                          wid = subject,
+                          within = c(bins, condition))
+print(timeAnova_left_HbR)
+#no significant effects of condition
+```
+
+```{r analyze right HbR}
+
+timeAnova_right_HbR <- ez::ezANOVA(fnirsData_binned[fnirsData_binned$hemisphere == "r",],
+                           dv = HbR,
+                           wid = subject,
+                           within = c(bins, condition))
+print(timeAnova_right_HbR)
+#no significant effects of condition
+```
+```{r clean-up}
+temporalContingencyData <- merge(temporalContingencyData_looking, 
+                                 merge(left_HbO_diff, right_HbO_diff, by = "subject", all = TRUE),
+                                 by.x = "ID", by.y = "subject", all = TRUE)
+rm(list = c("n_bins", 
+            "timeAnova_left_HbO", 
+            "timeAnova_left_HbR", 
+            "timeAnova_right_HbO",
+            "timeAnova_right_HbR",
+            "bins_left_HbO", 
+            "bins_right_HbO",
+            "temporalContingencyData_looking",
+            "left_HbO_diff",
+            "right_HbO_diff",
+            "currentTest",
+            "fnirsData_binned",
+            "fnirsData_ROI_long"))
+```
+
