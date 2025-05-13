@@ -23,10 +23,17 @@ spatialContingencyData <- Result %>%
   mutate(lookingScore = looking_s_mirrored/(looking_s_mirrored + looking_s_ego),
          legMovementScore = legMovement_s_mirrored/(legMovement_s_mirrored + legMovement_s_ego)) %>%
   select(id, lookingScore, legMovementScore)
+rm(Result)
 ```
-## Temporal Contingency Data
+## Temporal Contingency Data - Looking
 
 ```{r}
-
+library(dplyr)
+load("Z:/Längsschnitt Selbst/Auswertung/T1/fNIRS/AttentionCoding/lookingData.RData")
+temporalContingencyData_looking <- looking_data %>%
+  select(ID, condition, mean_looking) %>%
+  tidyr::pivot_wider(names_from = condition, values_from = mean_looking) %>%
+  mutate(lookingScore = delayed/(delayed + online)) %>%
+  select(ID, lookingScore)
+rm(looking_data)
 ```
-
