@@ -229,10 +229,7 @@ load("Z:/Längsschnitt Selbst/Auswertung/T4/BodyAsObject/Obstacle/RScripts/allDa
 bodyAsObstacle <- allData %>%
   mutate(error = ifelse(errors_binary == "Yes", 1, 0)) %>%
   group_by(ID) %>%
-  summarise(n = n(),
-            trials_with_errors = sum(error),
-            m_errors = trials_with_errors / n) %>%
-  select(ID, m_errors)
+  summarise(m_errors = mean(error))
 rm(allData)
 ```
 
@@ -244,5 +241,18 @@ selfUnderstandingData <- cleandat %>%
   mutate(passed = (self_description_rel + self_recognition_rel + self_regulation_rel + autonomy_rel)/4) %>%
   select(ID, passed)
 rm(cleandat)
+```
+
+## Placing Sticker on Self Data
+```{r}
+library(dplyr)
+placingStickerData_buffer <- readxl::read_excel("Z:/Längsschnitt Selbst/Auswertung/T4/Placing/Coding_Placing_T4_StefanieKrammer.xlsx")
+placingStickerData <- placingStickerData_buffer %>%
+  mutate(correctPlace = ifelse(Placement == "of", 1, ifelse(Placement == -99, NA, 0))) %>%
+  select(ID, Type, correctPlace) %>%
+  na.omit() %>%
+  group_by(ID) %>%
+  summarise(m_correctTrials = mean(correctPlace))
+rm(placingStickerData_buffer)
 ```
 
