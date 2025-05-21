@@ -173,8 +173,25 @@ sensoryAttenuationData <- read.csv("Z:/Längsschnitt Selbst/Auswertung/T2/EEG/Pr
 ## Mirror Self-Recognition Data
 ```{r}
 library(dplyr)
-library(readxl)
-mirrorSelfRecognitionData <- read_excel("Z:/Längsschnitt Selbst/Auswertung/T4/MirrorSelfRecognition/Hauptkodierung_LinaMöllen/Coding_MSR_T4_Lina_final.xlsx") %>%
+mirrorSelfRecognitionData <- readxl::read_excel("Z:/Längsschnitt Selbst/Auswertung/T4/MirrorSelfRecognition/Hauptkodierung_LinaMöllen/Coding_MSR_T4_Lina_final.xlsx") %>%
   select(ID, Recognition)
+```
+
+## Video Self-Recognition Data
+```{r}
+library(dplyr)
+library(readxl)
+
+#load data from blind coding
+videoSelfRecognitionData_blind <- read_excel("Z:/Längsschnitt Selbst/Auswertung/T4/VideoSelfRecognition/Coding_ExcelFiles/Hauptkodierung_AshleyChay/T4_SelfRecognition_Ashley_final.xlsx")
+
+#load condition data
+conditions <- read_excel("Z:/Längsschnitt Selbst/Auswertung/T4/VideoSelfRecognition/T4_SelfRecognition_Conditions.xlsx")
+
+#merge together and only consider children that responded correctly in both conditions as recognizer
+videoSelfRecognitionData <- merge(videoSelfRecognitionData_blind, conditions, by.x = c("ID", "Condition"), by.y = c("ID", "Video")) %>%
+  select(ID, `self-recognition`, Condition.y) %>%
+  tidyr::pivot_wider(names_from = Condition.y, values_from = `self-recognition`) %>%
+  mutate(selfRecognition = ifelse(self == "y" & other == "n", 1, 0))
 ```
 
