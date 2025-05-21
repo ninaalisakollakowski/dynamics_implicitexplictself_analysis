@@ -17,7 +17,9 @@ spatialContingencyData <- Result %>%
   tidyr::pivot_wider(names_from = view, values_from = c("looking_s", "legMovement_s")) %>%
   mutate(lookingScore = looking_s_mirrored/(looking_s_mirrored + looking_s_ego),
          legMovementScore = legMovement_s_mirrored/(legMovement_s_mirrored + legMovement_s_ego)) %>% #create contingency preference scores
-  select(id, lookingScore, legMovementScore)
+  select(id, lookingScore, legMovementScore) %>%
+  rename(spatialContingency_looking = lookingScore,
+         spatialContingency_legs = legMovementScore)
 rm(Result)
 ```
 ## Temporal Contingency Data - Looking
@@ -29,7 +31,9 @@ temporalContingencyData_looking <- looking_data %>%
   select(ID, condition, mean_looking) %>%
   tidyr::pivot_wider(names_from = condition, values_from = mean_looking) %>% #create contingency preference score
   mutate(lookingScore = delayed/(delayed + online)) %>%
-  select(ID, lookingScore)
+  select(ID, lookingScore) %>%
+  rename(id = ID,
+         temporalContingency_looking = lookingScore)
 rm(looking_data)
 ```
 
@@ -38,6 +42,7 @@ rm(looking_data)
 library(dplyr)
 load("Z:/Längsschnitt Selbst/Auswertung/T1/fNIRS/RScripts/ROIData.RData")
 n_bins <- 10
+#create time bins and summarise data within these
 fnirsData_binned <- fnirsData_ROI_long %>%
   mutate(bins = ntile(time, n = n_bins)) %>%
   group_by(subject, condition, hemisphere, bins) %>%
@@ -135,7 +140,9 @@ print(timeAnova_right_HbR)
 ```{r clean-up}
 temporalContingencyData <- merge(temporalContingencyData_looking, 
                                  merge(left_HbO_diff, right_HbO_diff, by = "subject", all = TRUE),
-                                 by.x = "ID", by.y = "subject", all = TRUE)
+                                 by.x = "id", by.y = "subject", all = TRUE) %>%
+  rename(temporalContingency_left = leftHbOScore,
+         temporalContingency_right = rightHbOScore)
 rm(list = c("n_bins", 
             "timeAnova_left_HbO", 
             "timeAnova_left_HbR", 
@@ -148,7 +155,8 @@ rm(list = c("n_bins",
             "right_HbO_diff",
             "currentTest",
             "fnirsData_binned",
-            "fnirsData_ROI_long"))
+            "fnirsData_ROI_long",
+            "i"))
 ```
 
 ## Reaching to the Self Data
@@ -160,21 +168,37 @@ reachingToSelfData <- Result %>%
   filter(!is.na(Contact_Success)) %>%
   group_by(ID, Target_Location_general) %>%
   summarise(n_trials = n(),
-            proportionContact = sum(Contact_Success)/n_trials) %>%
+            proportionContact = sum(Contact_Success)/n_trials) %>% #calculate proportion of trials with successful contact
   select(-n_trials) %>%
-  tidyr::pivot_wider(names_from = Target_Location_general, values_from = proportionContact)
+  tidyr::pivot_wider(names_from = Target_Location_general, values_from = proportionContact) %>%
+  rename(id = ID,
+         reaching_arm = arm,
+         reaching_head = head)
+
+rm(Result)
 ```
 
 ## Sensory Attenuation (EEG) Data
 ```{r}
-sensoryAttenuationData <- read.csv("Z:/Längsschnitt Selbst/Auswertung/T2/EEG/Preprocessing_HAPPE/Trigger_SoundOnsetOhneAffe/ClusterBasedPermutationAnalysis_Fieldtrip/Significant_Clusters_ERP/meanClusterDifferences.csv")
+sensoryAttenuationData_buffer <- read.csv("Z:/Längsschnitt Selbst/Auswertung/T2/EEG/Preprocessing_HAPPE/Trigger_SoundOnsetOhneAffe/ClusterBasedPermutationAnalysis_Fieldtrip/Significant_Clusters_ERP/meanClusterDifferences.csv")
+sensoryAttenuationData <- sensoryAttenuationData_buffer %>%
+  rename(id = ID,
+         sensoryAttenuation_pos = posCluster,
+         sensoryAttenuation_neg = negCluster)
+
+rm(sensoryAttenuationData_buffer)
 ```
 
 ## Mirror Self-Recognition Data
 ```{r}
 library(dplyr)
-mirrorSelfRecognitionData <- readxl::read_excel("Z:/Längsschnitt Selbst/Auswertung/T4/MirrorSelfRecognition/Hauptkodierung_LinaMöllen/Coding_MSR_T4_Lina_final.xlsx") %>%
+mirrorSelfRecognitionData_buffer <- readxl::read_excel("Z:/Längsschnitt Selbst/Auswertung/T4/MirrorSelfRecognition/Hauptkodierung_LinaMöllen/Coding_MSR_T4_Lina_final.xlsx") %>%
   select(ID, Recognition)
+mirrorSelfRecognitionData <- mirrorSelfRecognitionData_buffer %>%
+  rename(id = ID,
+         mirrorSelfRecognition = Recognition)
+
+rm(mirrorSelfRecognitionData_buffer)
 ```
 
 ## Video Self-Recognition Data
@@ -192,7 +216,10 @@ conditions <- read_excel("Z:/Längsschnitt Selbst/Auswertung/T4/VideoSelfRecogni
 videoSelfRecognitionData <- merge(videoSelfRecognitionData_blind, conditions, by.x = c("ID", "Condition"), by.y = c("ID", "Video")) %>%
   select(ID, `self-recognition`, Condition.y) %>%
   tidyr::pivot_wider(names_from = Condition.y, values_from = `self-recognition`) %>%
-  mutate(selfRecognition = ifelse(self == "y" & other == "n", 1, 0))
+  mutate(selfRecognition = ifelse(self == "y" & other == "n", 1, 0)) %>%
+  select(ID, selfRecognition) %>%
+  rename(id = ID,
+         videoSelfRecognition = selfRecognition)
 
 #clean-up
 rm(conditions)
@@ -204,8 +231,10 @@ rm(videoSelfRecognitionData_blind)
 library(dplyr)
 load("Z:/Längsschnitt Selbst/Auswertung/T4/BodyAsObject/Door/RScripts/final_data_BodyAsObject_Door.RData")
 bodySizeDoorData <- all_results %>%
-  mutate(errors = ifelse(errors_binary == "Yes", 1, 0)) %>%
-  select(ID, errors)
+  mutate(errors = ifelse(errors_binary == "Yes", 1, 0)) %>% #recode: 1 = error present, 0 = no errors
+  select(ID, errors) %>%
+  rename(id = ID,
+         bodySizeDoor_errors = errors)
 
 rm(all_results)
 ```
@@ -215,10 +244,12 @@ rm(all_results)
 library(dplyr)
 load("Z:/Längsschnitt Selbst/Auswertung/T4/BodyAsObject/Toys/RScripts/allData.RData")
 bodySizeToysData <- allData %>%
-  mutate(error_binary = ifelse(errors == 0, 0, 1)) %>%
+  mutate(error_binary = ifelse(errors == 0, 0, 1)) %>% #check if trial with error (1) or not (0)
   select(id, toy, error_binary) %>%
   group_by(id) %>%
-  summarise(m_errors = mean(error_binary))
+  summarise(m_errors = mean(error_binary)) %>% #calculate proportion of trials with errors
+  rename(bodySizeToys_errors = m_errors)
+
 rm(allData)
 ```
 
@@ -227,9 +258,12 @@ rm(allData)
 library(dplyr)
 load("Z:/Längsschnitt Selbst/Auswertung/T4/BodyAsObject/Obstacle/RScripts/allData.RData")
 bodyAsObstacle <- allData %>%
-  mutate(error = ifelse(errors_binary == "Yes", 1, 0)) %>%
+  mutate(error = ifelse(errors_binary == "Yes", 1, 0)) %>% #recode: 1 = error present, 0 = no errors
   group_by(ID) %>%
-  summarise(m_errors = mean(error))
+  summarise(m_errors = mean(error))%>% #calculate proportion of trials with errors
+  rename(id = ID,
+         bodyObstacle_errors = m_errors)
+
 rm(allData)
 ```
 
@@ -239,7 +273,10 @@ library(dplyr)
 load("Z:/Längsschnitt Selbst/Auswertung/T4/Fragebögen/UCLA/UCLA.RData")
 selfUnderstandingData <- cleandat %>%
   mutate(passed = (self_description_rel + self_recognition_rel + self_regulation_rel + autonomy_rel)/4) %>%
-  select(ID, passed)
+  select(ID, passed) %>% #add proportion of passed items per scale and create average passed items
+  rename(id = ID,
+         selfUnderstanding_passed = passed)
+
 rm(cleandat)
 ```
 
@@ -248,11 +285,14 @@ rm(cleandat)
 library(dplyr)
 placingStickerData_buffer <- readxl::read_excel("Z:/Längsschnitt Selbst/Auswertung/T4/Placing/Coding_Placing_T4_StefanieKrammer.xlsx")
 placingStickerData <- placingStickerData_buffer %>%
-  mutate(correctPlace = ifelse(Placement == "of", 1, ifelse(Placement == -99, NA, 0))) %>%
+  mutate(correctPlace = ifelse(Placement == "of", 1, ifelse(Placement == -99, NA, 0))) %>% #check if correct placement (of = own face) or missing data
   select(ID, Type, correctPlace) %>%
-  na.omit() %>%
+  na.omit() %>% #omit missing data
   group_by(ID) %>%
-  summarise(m_correctTrials = mean(correctPlace))
+  summarise(m_correctTrials = mean(correctPlace)) %>% #create proportion of trials with correct placement
+  rename(id = ID,
+         placing_correct = m_correctTrials)
+
 rm(placingStickerData_buffer)
 ```
 
