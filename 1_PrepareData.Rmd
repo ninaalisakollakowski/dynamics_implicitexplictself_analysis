@@ -170,3 +170,11 @@ reachingToSelfData <- Result %>%
 sensoryAttenuationData <- read.csv("Z:/Längsschnitt Selbst/Auswertung/T2/EEG/Preprocessing_HAPPE/Trigger_SoundOnsetOhneAffe/ClusterBasedPermutationAnalysis_Fieldtrip/Significant_Clusters_ERP/meanClusterDifferences.csv")
 ```
 
+## Mirror Self-Recognition Data
+```{r}
+library(dplyr)
+library(readxl)
+mirrorSelfRecognitionData <- read_excel("Z:/Längsschnitt Selbst/Auswertung/T4/MirrorSelfRecognition/Hauptkodierung_LinaMöllen/Coding_MSR_T4_Lina_final.xlsx") %>%
+  select(ID, Recognition)
+```
+
