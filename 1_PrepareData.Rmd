@@ -193,5 +193,20 @@ videoSelfRecognitionData <- merge(videoSelfRecognitionData_blind, conditions, by
   select(ID, `self-recognition`, Condition.y) %>%
   tidyr::pivot_wider(names_from = Condition.y, values_from = `self-recognition`) %>%
   mutate(selfRecognition = ifelse(self == "y" & other == "n", 1, 0))
+
+#clean-up
+rm(conditions)
+rm(videoSelfRecognitionData_blind)
+```
+
+## Body Size: Door Data
+```{r}
+library(dplyr)
+load("Z:/Längsschnitt Selbst/Auswertung/T4/BodyAsObject/Door/RScripts/final_data_BodyAsObject_Door.RData")
+bodySizeDoorData <- all_results %>%
+  mutate(errors = ifelse(errors_binary == "Yes", 1, 0)) %>%
+  select(ID, errors)
+
+rm(all_results)
 ```
 
