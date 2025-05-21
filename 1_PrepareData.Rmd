@@ -222,3 +222,17 @@ bodySizeToysData <- allData %>%
 rm(allData)
 ```
 
+## Body as Obstacle data
+```{r}
+library(dplyr)
+load("Z:/Längsschnitt Selbst/Auswertung/T4/BodyAsObject/Obstacle/RScripts/allData.RData")
+bodyAsObstacle <- allData %>%
+  mutate(error = ifelse(errors_binary == "Yes", 1, 0)) %>%
+  group_by(ID) %>%
+  summarise(n = n(),
+            trials_with_errors = sum(error),
+            m_errors = trials_with_errors / n) %>%
+  select(ID, m_errors)
+rm(allData)
+```
+
