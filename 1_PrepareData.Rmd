@@ -210,3 +210,15 @@ bodySizeDoorData <- all_results %>%
 rm(all_results)
 ```
 
+## Body Size: Toys Data
+```{r}
+library(dplyr)
+load("Z:/Längsschnitt Selbst/Auswertung/T4/BodyAsObject/Toys/RScripts/allData.RData")
+bodySizeToysData <- allData %>%
+  mutate(error_binary = ifelse(errors == 0, 0, 1)) %>%
+  select(id, toy, error_binary) %>%
+  group_by(id) %>%
+  summarise(m_errors = mean(error_binary))
+rm(allData)
+```
+
