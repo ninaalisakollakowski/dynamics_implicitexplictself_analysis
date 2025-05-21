@@ -55,9 +55,9 @@ fnirsData_binned$condition <- droplevels(fnirsData_binned$condition)
 ```{r analyze left HbO}
 #ANOVA
 timeAnova_left_HbO <- ez::ezANOVA(fnirsData_binned[fnirsData_binned$hemisphere == "l",],
-                          dv = HbO,
-                          wid = subject,
-                          within = c(bins, condition))
+                                  dv = HbO,
+                                  wid = subject,
+                                  within = c(bins, condition))
 print(timeAnova_left_HbO)
 
 #Post-Hoc T-Tests of time bins
@@ -83,15 +83,15 @@ left_HbO_diff <- fnirsData_binned %>%
   tidyr::pivot_wider(names_from = condition, values_from = m_HbO) %>%
   mutate(leftHbOScore = delayed - online) %>%
   select(subject, leftHbOScore)
-  
+
 ```
 
 ```{r analyze right HbO}
 #ANOVA HbO right hemisphere
 timeAnova_right_HbO <- ez::ezANOVA(fnirsData_binned[fnirsData_binned$hemisphere == "r",],
-                           dv = HbO,
-                           wid = subject,
-                           within = c(bins, condition))
+                                   dv = HbO,
+                                   wid = subject,
+                                   within = c(bins, condition))
 print(timeAnova_right_HbO)
 
 bins_right_HbO <- data.frame(matrix(nrow = n_bins, ncol = 3))
@@ -121,9 +121,9 @@ right_HbO_diff <- fnirsData_binned %>%
 
 ```{r analyze left HbR}
 timeAnova_left_HbR <- ez::ezANOVA(fnirsData_binned[fnirsData_binned$hemisphere == "l",],
-                          dv = HbR,
-                          wid = subject,
-                          within = c(bins, condition))
+                                  dv = HbR,
+                                  wid = subject,
+                                  within = c(bins, condition))
 print(timeAnova_left_HbR)
 #no significant effects of condition
 ```
@@ -131,9 +131,9 @@ print(timeAnova_left_HbR)
 ```{r analyze right HbR}
 
 timeAnova_right_HbR <- ez::ezANOVA(fnirsData_binned[fnirsData_binned$hemisphere == "r",],
-                           dv = HbR,
-                           wid = subject,
-                           within = c(bins, condition))
+                                   dv = HbR,
+                                   wid = subject,
+                                   within = c(bins, condition))
 print(timeAnova_right_HbR)
 #no significant effects of condition
 ```
@@ -294,5 +294,40 @@ placingStickerData <- placingStickerData_buffer %>%
          placing_correct = m_correctTrials)
 
 rm(placingStickerData_buffer)
+```
+
+## Join all data
+```{r}
+selfData <- merge(bodyAsObstacle,
+                  merge(bodySizeDoorData,
+                        merge(bodySizeToysData,
+                              merge(mirrorSelfRecognitionData,
+                                    merge(placingStickerData,
+                                          merge(reachingToSelfData,
+                                                merge(selfUnderstandingData,
+                                                      merge(sensoryAttenuationData,
+                                                            merge(spatialContingencyData,
+                                                                  merge(temporalContingencyData,
+                                                                        videoSelfRecognitionData,
+                                                                        by = "id",
+                                                                        all = TRUE),
+                                                                  by = "id",
+                                                                  all = TRUE),
+                                                            by = "id",
+                                                            all = TRUE),
+                                                      by = "id",
+                                                      all = TRUE),
+                                                by = "id",
+                                                all = TRUE),
+                                          by = "id",
+                                          all = TRUE),
+                                    by = "id",
+                                    all = TRUE),
+                              by = "id",
+                              all = TRUE),
+                        by = "id",
+                        all = TRUE),
+                  by = "id",
+                  all = TRUE)
 ```
 
