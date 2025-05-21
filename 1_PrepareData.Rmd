@@ -164,3 +164,9 @@ reachingToSelfData <- Result %>%
   select(-n_trials) %>%
   tidyr::pivot_wider(names_from = Target_Location_general, values_from = proportionContact)
 ```
+
+## Sensory Attenuation (EEG) Data
+```{r}
+sensoryAttenuationData <- read.csv("Z:/Längsschnitt Selbst/Auswertung/T2/EEG/Preprocessing_HAPPE/Trigger_SoundOnsetOhneAffe/ClusterBasedPermutationAnalysis_Fieldtrip/Significant_Clusters_ERP/meanClusterDifferences.csv")
+```
+
