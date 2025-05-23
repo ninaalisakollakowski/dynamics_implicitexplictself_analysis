@@ -1,0 +1,84 @@
+---
+title: "2_AnalyzeData"
+author: "Nina-Alisa Kollakowski"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+## Initializing
+```{r}
+library(dplyr)
+library(mice)
+library(psych)
+library(semTools)
+library(lavaan)
+
+load("joinedSelfData.RData")
+currentData <- selfData
+rm(selfData)
+```
+
+## Defining measures
+
+```{r}
+##defining measures----
+implicitSelfMeasures <- c("spatialContingency_looking", 
+                          "spatialContingency_legs", 
+                          "temporalContingency_looking",
+                          "temporalContingency_left",
+                          "temporalContingency_right",
+                          "reaching_arm",
+                          "reaching_head",
+                          "sensoryAttenuation_pos",
+                          "sensoryAttenuation_neg")
+explicitSelfMeasures <- c("mirrorSelfRecognition", 
+                          "videoSelfRecognition", 
+                          "bodySizeDoor_errors",
+                          "bodySizeToys_errors", 
+                          "bodyObstacle_errors", 
+                          "selfUnderstanding_passed", 
+                          "placing_correct")
+```
+
+##impute Data
+```{r}
+#impute 500 different datasets and set seed to make reproducible
+imputedData <- mice(currentData, m = 500, print = FALSE, seed = 350)
+save(imputedData, file = "imputedData.Rdata")
+
+#outputs a warning: Number of logged events: 1
+#follow-up on this warning:
+imputedData$loggedEvents
+#output:
+#   it im dep     meth out
+# 1  0  0     constant  id
+# -> id was excluded from the imputation -> no issue -> ignore
+```
+
+#load imputed dataset
+```{r}
+load("imputedData.Rdata")
+```
+
+## CFA for implicit measures
+model fit will be evaluated using the Î§2-Test, RMSEA, SRMR, and CFI
+if 3/4 of indicators indicate a good fit, then jump directly to regression
+a good fit is indicated by: nonsignificant X2-test, a RSMEA < .08, a SRMR < .11, and a CFI > .95
+if less than 3/4 of indicators indicate a good fit, proceed with EFA
+```{r}
+implicitCFA.model <- 'implicit =~ spatialContingency_looking +  
+                           spatialContingency_legs +
+                           temporalContingency_looking +
+                           temporalContingency_left +
+                           temporalContingency_right +
+                           reaching_arm +
+                           reaching_head +
+                           sensoryAttenuation_pos +
+                           sensoryAttenuation_neg'
+implicitCFA <- cfa.mi(implicitCFA.model, data=imputedData) 
+summary(implicitCFA)
+fitMeasures(implicitCFA)
+```
+
+
+
