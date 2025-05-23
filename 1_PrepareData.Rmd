@@ -329,5 +329,7 @@ selfData <- merge(bodyAsObstacle,
                         all = TRUE),
                   by = "id",
                   all = TRUE)
+
+save(selfData, file = "joinedSelfData.RData")
 ```
 
