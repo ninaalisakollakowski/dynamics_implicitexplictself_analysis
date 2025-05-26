@@ -11,11 +11,7 @@ library(dplyr)
 library(mice)
 library(psych)
 library(semTools)
-library(lavaan)
-
-load("joinedSelfData.RData")
-currentData <- selfData
-rm(selfData)
+#library(lavaan)
 ```
 
 ## Defining measures
@@ -38,21 +34,49 @@ explicitSelfMeasures <- c("mirrorSelfRecognition",
                           "bodyObstacle_errors", 
                           "selfUnderstanding_passed", 
                           "placing_correct")
+continuousVariables <- c("spatialContingency_looking", 
+                         "spatialContingency_legs", 
+                         "temporalContingency_looking",
+                         "temporalContingency_left",
+                         "temporalContingency_right",
+                         "reaching_arm",
+                         "reaching_head",
+                         "sensoryAttenuation_pos",
+                         "sensoryAttenuation_neg",
+                         "bodySizeToys_errors", 
+                         "bodyObstacle_errors", 
+                         "selfUnderstanding_passed", 
+                         "placing_correct")
+dichotomousVariables <- c("mirrorSelfRecognition", 
+                          "videoSelfRecognition", 
+                          "bodySizeDoor_errors")
 ```
+
+##load dataset
+```{r}
+load("joinedSelfData.RData")
+currentData <- selfData
+rm(selfData)
+```
+
+##scale dataset
+without scaling CFA was giving the warnings that "some observed variances are (at least) a factor 1000 times larger than others; use varTable(fit) to investigate"
+
+```{r}
+currentData_scaled <- currentData %>% 
+  mutate_at(continuousVariables, 
+            ~(scale(.) %>% as.vector)) %>% 
+  select(-id)
+```
+
+
 
 ##impute Data
 ```{r}
 #impute 500 different datasets and set seed to make reproducible
-imputedData <- mice(currentData, m = 500, print = FALSE, seed = 350)
+nImputations <- 500
+imputedData <- mice(currentData_scaled, m = nImputations, print = FALSE, seed = 350)
 save(imputedData, file = "imputedData.Rdata")
-
-#outputs a warning: Number of logged events: 1
-#follow-up on this warning:
-imputedData$loggedEvents
-#output:
-#   it im dep     meth out
-# 1  0  0     constant  id
-# -> id was excluded from the imputation -> no issue -> ignore
 ```
 
 #load imputed dataset
@@ -60,25 +84,58 @@ imputedData$loggedEvents
 load("imputedData.Rdata")
 ```
 
-## CFA for implicit measures
-model fit will be evaluated using the Î§2-Test, RMSEA, SRMR, and CFI
-if 3/4 of indicators indicate a good fit, then jump directly to regression
-a good fit is indicated by: nonsignificant X2-test, a RSMEA < .08, a SRMR < .11, and a CFI > .95
-if less than 3/4 of indicators indicate a good fit, proceed with EFA
-```{r}
-implicitCFA.model <- 'implicit =~ spatialContingency_looking +  
-                           spatialContingency_legs +
-                           temporalContingency_looking +
-                           temporalContingency_left +
-                           temporalContingency_right +
-                           reaching_arm +
-                           reaching_head +
-                           sensoryAttenuation_pos +
-                           sensoryAttenuation_neg'
-implicitCFA <- cfa.mi(implicitCFA.model, data=imputedData) 
-summary(implicitCFA)
-fitMeasures(implicitCFA)
+## compute correlation matrix for implicit/explicit measures for each imputed dataset
+use psych::mixedCor for this
+```{r echo=FALSE}
+#initialize lists of correlations and standard deviations
+correlationData_implicit <- vector("list", nImputations)
+correlationData_explicit <- vector("list", nImputations)
+standardDeviations <- vector("list", nImputations)
+
+for (i in 1:nImputations){
+  #extract current imputed dataset
+  curDataset <- complete(imputedData, action = i)
+  
+  #compute standard deviations of measures as needed for covariance matrix
+  standardDeviations[[i]] <- sapply(curDataset, sd)
+
+  #calculate correlations of implicit measures    
+  correlationData_implicit[[i]] <- mixedCor(curDataset %>%
+                                              select(all_of(implicitSelfMeasures)),
+                                            c = intersect(implicitSelfMeasures, continuousVariables),
+                                            d = intersect(implicitSelfMeasures, dichotomousVariables))$rho 
+  
+  #calculate correlations of explicit measures
+  correlationData_explicit[[i]] <- mixedCor(curDataset %>%
+                                              select(all_of(explicitSelfMeasures)),
+                                            c = intersect(explicitSelfMeasures, continuousVariables),
+                                            d = intersect(explicitSelfMeasures, dichotomousVariables))$rho 
+}
 ```
+
+## create covariance matrix from each correlation matrix
+
+## create average covariance matrix for implicit/explicit measures
+
+## compute CFA ofr implicit/explicit measures
+MLR estimator
+evaluate fit using X2-test, RMSEA, SRMR, CFI
+good fit if 3/4 indicators suggest good fit
+X2 = non-significant
+RMSEA < .08
+SRMR <.11
+CFI >.95
+
+## eventually perform EFA for implicit/explicit measures
+1) Bartlett's test to check if correlation matrix different from identity matrix (needs to be significant)
+2) KMO >.5, otherwise exclude variables with smallest KMO until criterion is reached
+3) parallel analysis with reduced correlation matrix to decide number of factors
+4) run EFA with principal axis factoring with oblique (direct oblimin) rotation
+5) assign variables to factors with loadings of >=.4
+6) calculate factor scores
+
+## linear regressions of implicit -> explicit self
+
 
 
 
