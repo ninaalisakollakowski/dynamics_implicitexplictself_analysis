@@ -272,7 +272,7 @@ rm(allData)
 library(dplyr)
 load("Z:/Längsschnitt Selbst/Auswertung/T4/Fragebögen/UCLA/UCLA.RData")
 selfUnderstandingData <- cleandat %>%
-  mutate(passed = (self_description_rel + self_recognition_rel + self_regulation_rel + autonomy_rel)/4) %>%
+  mutate(passed = (self_description_rel + self_recognition_rel)/2) %>%
   select(ID, passed) %>% #add proportion of passed items per scale and create average passed items
   rename(id = ID,
          selfUnderstanding_passed = passed)
