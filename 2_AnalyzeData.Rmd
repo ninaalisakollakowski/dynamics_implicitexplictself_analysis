@@ -10,8 +10,8 @@ output: html_document
 library(dplyr)
 library(mice)
 library(psych)
-library(semTools)
-#library(lavaan)
+#library(semTools)
+library(lavaan)
 
 nImputations <- 500
 ```
@@ -162,7 +162,6 @@ RMSEA < .08
 SRMR <.11
 CFI >.95
 ```{r CFA implicit}
-library(lavaan)
 implicitCFA.model <- 'implicit =~ spatialContingency_looking + 
                                   spatialContingency_legs + 
                                   temporalContingency_looking + 
@@ -176,6 +175,11 @@ implicitCFA <- cfa(implicitCFA.model, sample.cov = covariance_implicit, sample.n
 summary(implicitCFA)
 fitMeasures(implicitCFA, fit.measures = c("rmsea", "srmr", "cfi"))
 ```
+significant X2-test (p = 0.000) -> bad
+RMSEA > .08 (0.151) -> bad
+SRMR > .11 (0.123) -> bad
+CFI < .95 (0.302) -> bad
+all indicators show bad fit of CFA for implicit measures -> perform EFA
 ```{r}
 explicitCFA.model <- 'explicit =~ mirrorSelfRecognition + 
                                   videoSelfRecognition + 
@@ -188,10 +192,39 @@ explicitCFA <- cfa(explicitCFA.model, sample.cov = covariance_explicit, sample.n
 summary(explicitCFA)
 fitMeasures(explicitCFA, fit.measures = c("rmsea", "srmr", "cfi"))
 ```
+significant X2-test (p = 0.019) -> bad
+RMSEA > .08 (0.089) -> bad
+SRMR < .11 (0.075) -> good
+CFI < .95 (0.692) -> bad
+3/4 indicators show bad fit of CFA for explicit measures -> perform EFA
 
-
-## eventually perform EFA for implicit/explicit measures
+##perform EFA for implicit measures
 1) Bartlett's test to check if correlation matrix different from identity matrix (needs to be significant)
+```{r Bartlett}
+cortest.bartlett(correlation_implicit, n = nObservations) #significant -> proceed
+```
+2) KMO >.5, otherwise exclude variables with smallest KMO until criterion is reached
+```{r KMO}
+KMO(correlation_implicit) #KMO = 0.47, exclude temporalContingency_left (0.42)
+correlation_implicit1 <- correlation_implicit[!rownames(correlation_implicit) == "temporalContingency_left",
+                                              !colnames(correlation_implicit) == "temporalContingency_left"]
+
+KMO(correlation_implicit1) #KMO = 0.51 -> proceed
+```
+
+3) parallel analysis with reduced correlation matrix to decide number of factors
+      fa.parallel(implicitSelfCorrelations, n.obs = nrow(currentData), n.iter = 1000, fm = "ml")
+      
+4) run EFA with principal axis factoring with oblique (direct oblimin) rotation
+5) assign variables to factors with loadings of >=.4
+6) calculate factor scores
+
+## perform EFA for explicit measures
+1) Bartlett's test to check if correlation matrix different from identity matrix (needs to be significant)
+```{r Bartlett}
+
+```
+
 2) KMO >.5, otherwise exclude variables with smallest KMO until criterion is reached
 3) parallel analysis with reduced correlation matrix to decide number of factors
 4) run EFA with principal axis factoring with oblique (direct oblimin) rotation
