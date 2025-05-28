@@ -12,6 +12,8 @@ library(mice)
 library(psych)
 library(semTools)
 #library(lavaan)
+
+nImputations <- 500
 ```
 
 ## Defining measures
@@ -57,11 +59,11 @@ dichotomousVariables <- c("mirrorSelfRecognition",
 load("joinedSelfData.RData")
 currentData <- selfData
 rm(selfData)
+nObservations = nrow(currentData)
 ```
 
 ##scale dataset
 without scaling CFA was giving the warnings that "some observed variances are (at least) a factor 1000 times larger than others; use varTable(fit) to investigate"
-
 ```{r}
 currentData_scaled <- currentData %>% 
   mutate_at(continuousVariables, 
@@ -69,12 +71,9 @@ currentData_scaled <- currentData %>%
   select(-id)
 ```
 
-
-
 ##impute Data
 ```{r}
 #impute 500 different datasets and set seed to make reproducible
-nImputations <- 500
 imputedData <- mice(currentData_scaled, m = nImputations, print = FALSE, seed = 350)
 save(imputedData, file = "imputedData.Rdata")
 ```
@@ -90,15 +89,22 @@ use psych::mixedCor for this
 #initialize lists of correlations and standard deviations
 correlationData_implicit <- vector("list", nImputations)
 correlationData_explicit <- vector("list", nImputations)
-standardDeviations <- vector("list", nImputations)
+standardDeviations_implicit <- vector("list", nImputations)
+standardDeviations_explicit <- vector("list", nImputations)
 
 for (i in 1:nImputations){
   #extract current imputed dataset
   curDataset <- complete(imputedData, action = i)
   
-  #compute standard deviations of measures as needed for covariance matrix
-  standardDeviations[[i]] <- sapply(curDataset, sd)
-
+  #compute standard deviations of measures as a matrix as needed for covariance matrix
+  standardDeviations_implicit[[i]] <- diag(sapply(curDataset %>%
+                                                    select(all_of(implicitSelfMeasures)),
+                                                  sd)) #implicit
+  
+  standardDeviations_explicit[[i]] <- diag(sapply(curDataset %>%
+                                                    select(all_of(explicitSelfMeasures)), 
+                                                  sd)) #explicit
+  
   #calculate correlations of implicit measures    
   correlationData_implicit[[i]] <- mixedCor(curDataset %>%
                                               select(all_of(implicitSelfMeasures)),
@@ -114,10 +120,40 @@ for (i in 1:nImputations){
 ```
 
 ## create covariance matrix from each correlation matrix
+```{r}
+#initialize lists of covariances
+covarianceData_implicit <- vector("list", nImputations)
+covarianceData_explicit <- vector("list", nImputations)
 
-## create average covariance matrix for implicit/explicit measures
+for (i in 1:nImputations){
+  covarianceData_implicit[[i]] <- standardDeviations_implicit[[i]] %*% correlationData_implicit[[i]] %*% standardDeviations_implicit[[i]]
+  
+  covarianceData_explicit[[i]] <- standardDeviations_explicit[[i]] %*% correlationData_explicit[[i]] %*% standardDeviations_explicit[[i]]
+}
+```
 
-## compute CFA ofr implicit/explicit measures
+## create average matrices for implicit/explicit measures
+```{r}
+covariance_implicit <- apply(simplify2array(covarianceData_implicit), c(1,2), mean)
+rownames(covariance_implicit) <- implicitSelfMeasures
+colnames(covariance_implicit) <- implicitSelfMeasures
+
+covariance_explicit <- apply(simplify2array(covarianceData_explicit), c(1,2), mean)
+rownames(covariance_explicit) <- explicitSelfMeasures
+colnames(covariance_explicit) <- explicitSelfMeasures
+
+correlation_implicit <- apply(simplify2array(correlationData_implicit), c(1,2), mean)
+rownames(correlation_implicit) <- implicitSelfMeasures
+colnames(correlation_implicit) <- implicitSelfMeasures
+
+correlation_explicit <- apply(simplify2array(correlationData_explicit), c(1,2), mean)
+rownames(correlation_explicit) <- explicitSelfMeasures
+colnames(correlation_explicit) <- explicitSelfMeasures
+
+```
+
+
+## compute CFA of implicit/explicit measures
 MLR estimator
 evaluate fit using X2-test, RMSEA, SRMR, CFI
 good fit if 3/4 indicators suggest good fit
@@ -125,6 +161,34 @@ X2 = non-significant
 RMSEA < .08
 SRMR <.11
 CFI >.95
+```{r CFA implicit}
+library(lavaan)
+implicitCFA.model <- 'implicit =~ spatialContingency_looking + 
+                                  spatialContingency_legs + 
+                                  temporalContingency_looking + 
+                                  temporalContingency_left +
+                                  temporalContingency_right + 
+                                  reaching_arm +
+                                  reaching_head +
+                                  sensoryAttenuation_pos +
+                                  sensoryAttenuation_neg'
+implicitCFA <- cfa(implicitCFA.model, sample.cov = covariance_implicit, sample.nobs = nObservations) 
+summary(implicitCFA)
+fitMeasures(implicitCFA, fit.measures = c("rmsea", "srmr", "cfi"))
+```
+```{r}
+explicitCFA.model <- 'explicit =~ mirrorSelfRecognition + 
+                                  videoSelfRecognition + 
+                                  bodySizeDoor_errors + 
+                                  bodySizeToys_errors +
+                                  bodyObstacle_errors + 
+                                  selfUnderstanding_passed +
+                                  placing_correct'
+explicitCFA <- cfa(explicitCFA.model, sample.cov = covariance_explicit, sample.nobs = nObservations) 
+summary(explicitCFA)
+fitMeasures(explicitCFA, fit.measures = c("rmsea", "srmr", "cfi"))
+```
+
 
 ## eventually perform EFA for implicit/explicit measures
 1) Bartlett's test to check if correlation matrix different from identity matrix (needs to be significant)
