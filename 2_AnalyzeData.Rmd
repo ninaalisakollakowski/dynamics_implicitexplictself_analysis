@@ -251,9 +251,11 @@ relevantFactorLoadings_implicit[abs(relevantFactorLoadings_implicit) < 0.4] <- 0
 
 6) calculate factor scores
 ```{r factor scores}
+#initialize lists for factor scores and all excluded variables
 factorScores_implicit <- vector("list", nImputations)
 otherVariables_implicit <- vector("list", nImputations)
 
+#calculate factor scores and scores for excluded variables for each imputed dataset
 for (i in 1:nImputations){
   curDataset <- complete(imputedData, action = i)
   
@@ -269,9 +271,11 @@ for (i in 1:nImputations){
 rm(factorScore_buffer)
 rm(curDataset)
 
+#create average factor scores and excluded variable scores for all datasets
 factorScores_implicit_avg <- apply(simplify2array(factorScores_implicit), c(1,2), mean)
 otherVariables_implicit_avg <- apply(simplify2array(otherVariables_implicit), c(1,2), mean)
 
+#combine factor scores and scores for excluded variables into dataframe for implicit self
 implicitSelf <- cbind(as.data.frame(factorScores_implicit_avg), as.data.frame(otherVariables_implicit_avg))
 implicitSelf <- implicitSelf %>%
    rename(implicitFactor1 = PA1,
