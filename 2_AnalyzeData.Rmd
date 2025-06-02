@@ -117,6 +117,7 @@ for (i in 1:nImputations){
                                             c = intersect(explicitSelfMeasures, continuousVariables),
                                             d = intersect(explicitSelfMeasures, dichotomousVariables))$rho 
 }
+rm(curDataset)
 ```
 
 ## create covariance matrix from each correlation matrix
@@ -288,23 +289,118 @@ implicitSelf <- implicitSelf %>%
 ## perform EFA for explicit measures
 1) Bartlett's test to check if correlation matrix different from identity matrix (needs to be significant)
 ```{r Bartlett}
-
+cortest.bartlett(correlation_explicit, n = nObservations) #significant -> proceed
 ```
 
 2) KMO >.5, otherwise exclude variables with smallest KMO until criterion is reached
 ```{r KMO}
-KMO(correlation_implicit1) #KMO = 0.51 -> proceed
+KMO(correlation_explicit) #KMO = 0.53 -> proceed
 ```
 
 3) parallel analysis with reduced correlation matrix to decide number of factors
 
+```{r parallel analysis}
+fa.parallel(correlation_explicit, n.obs = nObservations, n.iter = 1000, fm = "ml", fa = "fa")
+```
+parallel analysis suggests 4 factors  
 
 4) run EFA with principal axis factoring with oblique (direct oblimin) rotation
+```{r EFA}
+#run EFA with 3 factors as suggested by parallel analysis
+efa.explicit <- fa(correlation_explicit, nfactors = 4, n.obs = nObservations, 
+                   rotate = 'oblimin', fm = 'pa')
+
+#print results: cut-off of .4 as only loadings with >=.4 will be assigned to this factor
+print.psych(efa.explicit, cut = .4, digits=3, sort=TRUE) 
+```
+
 5) assign variables to factors with loadings of >=.4
+```{r assign to factors}
+#extract factor loading from EFA
+relevantFactorLoadings_explicit <- efa.explicit$loadings
+
+#replace loadings < 0.4 with 0 for correct calculation of factor scores
+relevantFactorLoadings_explicit[abs(relevantFactorLoadings_explicit) < 0.4] <- 0
+```
+
 6) calculate factor scores
+```{r factor scores}
+#initialize lists for factor scores and all excluded variables
+factorScores_explicit <- vector("list", nImputations)
+
+#calculate factor scores and scores for excluded variables for each imputed dataset
+for (i in 1:nImputations){
+  curDataset <- complete(imputedData, action = i)
+  
+   factorScore_buffer <- curDataset %>%
+    select(all_of(explicitSelfMeasures)) %>%
+    factor.scores(x = ., relevantFactorLoadings_explicit)
+  
+  factorScores_explicit[[i]] <- factorScore_buffer$scores
+}
+rm(factorScore_buffer)
+rm(curDataset)
+
+#create average factor scores and excluded variable scores for all datasets
+factorScores_explicit_avg <- apply(simplify2array(factorScores_explicit), c(1,2), mean)
+
+#combine factor scores and scores for excluded variables into dataframe for implicit self
+explicitSelf <- as.data.frame(factorScores_explicit_avg) %>%
+   rename(explicitFactor1 = PA1,
+          explicitFactor2 = PA2,
+          explicitFactor3 = PA3,
+          explicitFactor4 = PA4) %>%
+  mutate(id = 1:nObservations)
+```
 
 ## linear regressions of implicit -> explicit self
+run regressions of each explicit factor/variable with all implicit factors/variables as predictors
+```{r prepare dataframe}
+#merge implicit and explicit dataset
+selfData <- merge(implicitSelf, explicitSelf, by = "id")
+```
 
-
-
-
+```{r explicit factor 1}
+explicitFactor1.model <- lm(explicitFactor1 ~ implicitFactor1 + 
+                              implicitFactor2 + 
+                              implicitFactor3 + 
+                              temporalContingency_left + 
+                              temporalContingency_looking + 
+                              sensoryAttenuation_neg + 
+                              sensoryAttenuation_pos, 
+                            data = selfData)
+summary(explicitFactor1.model)
+```
+```{r explicit factor 2}
+explicitFactor2.model <- lm(explicitFactor2 ~ implicitFactor1 + 
+                              implicitFactor2 + 
+                              implicitFactor3 + 
+                              temporalContingency_left + 
+                              temporalContingency_looking + 
+                              sensoryAttenuation_neg + 
+                              sensoryAttenuation_pos, 
+                            data = selfData)
+summary(explicitFactor2.model)
+```
+```{r explicit factor 3}
+explicitFactor3.model <- lm(explicitFactor3 ~ implicitFactor1 + 
+                              implicitFactor2 + 
+                              implicitFactor3 + 
+                              temporalContingency_left + 
+                              temporalContingency_looking + 
+                              sensoryAttenuation_neg + 
+                              sensoryAttenuation_pos, 
+                            data = selfData)
+summary(explicitFactor3.model)
+```
+```{r explicit factor 4}
+explicitFactor4.model <- lm(explicitFactor4 ~ implicitFactor1 + 
+                              implicitFactor2 + 
+                              implicitFactor3 + 
+                              temporalContingency_left + 
+                              temporalContingency_looking + 
+                              sensoryAttenuation_neg + 
+                              sensoryAttenuation_pos, 
+                            data = selfData)
+summary(explicitFactor4.model)
+```
