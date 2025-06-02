@@ -203,12 +203,35 @@ CFI < .95 (0.692) -> bad
 ```{r Bartlett}
 cortest.bartlett(correlation_implicit, n = nObservations) #significant -> proceed
 ```
+
 2) KMO >.5, otherwise exclude variables with smallest KMO until criterion is reached
 ```{r KMO}
 KMO(correlation_implicit) #KMO = 0.47, exclude temporalContingency_left (0.42)
 correlation_implicit1 <- correlation_implicit[!rownames(correlation_implicit) == "temporalContingency_left",
                                               !colnames(correlation_implicit) == "temporalContingency_left"]
 
+KMO(correlation_implicit1) #KMO = 0.51 -> proceed
+```
+
+3) parallel analysis with reduced correlation matrix to decide number of factors
+      fa.parallel(implicitSelfCorrelations, n.obs = nrow(currentData), n.iter = 1000, fm = "ml")
+```{r}
+
+```
+      
+      
+4) run EFA with principal axis factoring with oblique (direct oblimin) rotation
+5) assign variables to factors with loadings of >=.4
+6) calculate factor scores
+
+## perform EFA for explicit measures
+1) Bartlett's test to check if correlation matrix different from identity matrix (needs to be significant)
+```{r Bartlett}
+
+```
+
+2) KMO >.5, otherwise exclude variables with smallest KMO until criterion is reached
+```{r KMO}
 KMO(correlation_implicit1) #KMO = 0.51 -> proceed
 ```
 
