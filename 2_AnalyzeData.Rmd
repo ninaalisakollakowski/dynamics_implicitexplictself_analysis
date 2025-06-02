@@ -209,20 +209,39 @@ cortest.bartlett(correlation_implicit, n = nObservations) #significant -> procee
 KMO(correlation_implicit) #KMO = 0.47, exclude temporalContingency_left (0.42)
 correlation_implicit1 <- correlation_implicit[!rownames(correlation_implicit) == "temporalContingency_left",
                                               !colnames(correlation_implicit) == "temporalContingency_left"]
+excludedFactors_implicit <- list("temporalContingency_left")
 
+#run KMO again
 KMO(correlation_implicit1) #KMO = 0.51 -> proceed
+
 ```
 
 3) parallel analysis with reduced correlation matrix to decide number of factors
-      fa.parallel(implicitSelfCorrelations, n.obs = nrow(currentData), n.iter = 1000, fm = "ml")
+
 ```{r}
+fa.parallel(correlation_implicit1, n.obs = nObservations, n.iter = 1000, fm = "ml", fa = "fa")
+```
+parallel analysis suggests 3 factors      
+
+4) run EFA with principal axis factoring with oblique (direct oblimin) rotation
+```{r}
+#run EFA with 3 factors as suggested by parallel analysis
+efa.implicit <- fa(correlation_implicit1, nfactors = 3, n.obs = nObservations, 
+                   rotate = 'oblimin', fm = 'pa')
+
+#print results: cut-off of .4 as only loadings with >=.4 will be assigned to this factor
+print.psych(efa.implicit, cut = .4, digits=3, sort=TRUE) 
+
+#exclude variables that don't load on any factor with loading of >=.4
+excludedFactors_implicit <- append(excludedFactors_implicit, c("temporalContingency_looking",
+                                                               "sensoryAttenuation_neg",
+                                                               "sensoryAttenuation_pos"))
 
 ```
-      
-      
-4) run EFA with principal axis factoring with oblique (direct oblimin) rotation
+
 5) assign variables to factors with loadings of >=.4
 6) calculate factor scores
+
 
 ## perform EFA for explicit measures
 1) Bartlett's test to check if correlation matrix different from identity matrix (needs to be significant)
@@ -236,8 +255,8 @@ KMO(correlation_implicit1) #KMO = 0.51 -> proceed
 ```
 
 3) parallel analysis with reduced correlation matrix to decide number of factors
-      fa.parallel(implicitSelfCorrelations, n.obs = nrow(currentData), n.iter = 1000, fm = "ml")
-      
+fa.parallel(implicitSelfCorrelations, n.obs = nrow(currentData), n.iter = 1000, fm = "ml")
+
 4) run EFA with principal axis factoring with oblique (direct oblimin) rotation
 5) assign variables to factors with loadings of >=.4
 6) calculate factor scores
