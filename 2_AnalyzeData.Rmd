@@ -62,6 +62,18 @@ rm(selfData)
 nObservations = nrow(currentData)
 ```
 
+##check for systematic missingness in data
+conduct Little's MCAR test to confirm that data is missing at random
+```{r}
+naniar::mcar_test(currentData) # p = .046
+naniar::mcar_test(currentData %>% 
+                    filter(if_any(all_of(explicitSelfMeasures), ~ !is.na(.)))) # p = .073
+naniar::mcar_test(currentData %>% 
+                    select(-starts_with("temporalContingency"),
+                           -starts_with("sensoryAttenuation"))) # p = .323
+```
+
+
 ##scale dataset
 without scaling CFA was giving the warnings that "some observed variances are (at least) a factor 1000 times larger than others; use varTable(fit) to investigate"
 ```{r}
