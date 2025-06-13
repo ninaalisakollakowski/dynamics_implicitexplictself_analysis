@@ -84,6 +84,7 @@ demographicData$Siblings_num <- as.factor(demographicData$Siblings_num)
 demographicData$Primary_Language_Child_num <- as.factor(demographicData$Primary_Language_Child_num)
 demographicData$Primary_Caretaker_num <- as.factor(demographicData$Primary_Caretaker_num)
 demographicData$sex <- as.factor(demographicData$sex)
+demographicData$Marital_Status_num <- as.factor(demographicData$Marital_Status_num)
 
 ```
 
