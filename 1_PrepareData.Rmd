@@ -4,10 +4,31 @@ author: "Nina-Alisa Kollakowski"
 date: "`r Sys.Date()`"
 output: html_document
 ---
-## Spatial Contingency Data
+## Demographic Data
 
 ```{r}
 library(dplyr)
+load("Z:/Längsschnitt Selbst/Auswertung/T1/Fragebögen/Demographics Questionnaire/demographicData.RData")
+demographicData <- overview %>%
+  mutate(education_mother = Secondary_Education_Mother_num + Tertiary_Education_Mother_num,
+         education_father = Secondary_Education_Father_num + Tertiary_Education_Father_num) %>%
+  select(ID,
+         education_mother,
+         education_father,
+         Age_Mother,
+         Age_Father,
+         Marital_Status_num,
+         Siblings_num,
+         Primary_Language_Child_num,
+         Primary_Caretaker_num) %>%
+  rename(id = ID)
+rm(overview)
+```
+
+
+## Spatial Contingency Data
+
+```{r}
 load("Z:/Längsschnitt Selbst/Auswertung/T1/Body Ownership_Behavioural/RScripts/allData.RData")
 spatialContingencyData <- Result %>%
   group_by(id, view) %>%
@@ -257,7 +278,7 @@ rm(allData)
 ```{r}
 library(dplyr)
 load("Z:/Längsschnitt Selbst/Auswertung/T4/BodyAsObject/Obstacle/RScripts/allData.RData")
-bodyAsObstacle <- allData %>%
+bodyAsObstacleData <- allData %>%
   mutate(error = ifelse(errors_binary == "Yes", 1, 0)) %>% #recode: 1 = error present, 0 = no errors
   group_by(ID) %>%
   summarise(m_errors = mean(error))%>% #calculate proportion of trials with errors
@@ -298,17 +319,20 @@ rm(placingStickerData_buffer)
 
 ## Join all data
 ```{r}
-selfData <- merge(bodyAsObstacle,
-                  merge(bodySizeDoorData,
-                        merge(bodySizeToysData,
-                              merge(mirrorSelfRecognitionData,
-                                    merge(placingStickerData,
-                                          merge(reachingToSelfData,
-                                                merge(selfUnderstandingData,
-                                                      merge(sensoryAttenuationData,
-                                                            merge(spatialContingencyData,
-                                                                  merge(temporalContingencyData,
-                                                                        videoSelfRecognitionData,
+selfData <- merge(demographicData,
+                  merge(bodyAsObstacleData,
+                        merge(bodySizeDoorData,
+                              merge(bodySizeToysData,
+                                    merge(mirrorSelfRecognitionData,
+                                          merge(placingStickerData,
+                                                merge(reachingToSelfData,
+                                                      merge(selfUnderstandingData,
+                                                            merge(sensoryAttenuationData,
+                                                                  merge(spatialContingencyData,
+                                                                        merge(temporalContingencyData,
+                                                                              videoSelfRecognitionData,
+                                                                              by = "id",
+                                                                              all = TRUE),
                                                                         by = "id",
                                                                         all = TRUE),
                                                                   by = "id",
