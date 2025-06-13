@@ -85,9 +85,6 @@ rm(list = c("overview",
             "ages_T2",
             "ages_T4",
             "demographicQuestionnaire"))
-=======
-rm(overview)
->>>>>>> ba53938104ed8fba84f2ca9009c1193944418f58
 ```
 
 
