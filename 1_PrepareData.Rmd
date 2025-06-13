@@ -8,9 +8,14 @@ output: html_document
 
 ```{r}
 library(dplyr)
+<<<<<<< HEAD
 #load data from demographics questionnaire
 load("Z:/Längsschnitt Selbst/Auswertung/T1/Fragebögen/Demographics Questionnaire/demographicData.RData")
 demographicQuestionnaire <- overview %>%
+=======
+load("Z:/Längsschnitt Selbst/Auswertung/T1/Fragebögen/Demographics Questionnaire/demographicData.RData")
+demographicData <- overview %>%
+>>>>>>> ba53938104ed8fba84f2ca9009c1193944418f58
   mutate(education_mother = Secondary_Education_Mother_num + Tertiary_Education_Mother_num,
          education_father = Secondary_Education_Father_num + Tertiary_Education_Father_num) %>%
   select(ID,
@@ -23,6 +28,7 @@ demographicQuestionnaire <- overview %>%
          Primary_Language_Child_num,
          Primary_Caretaker_num) %>%
   rename(id = ID)
+<<<<<<< HEAD
 
 #load age data of child at each time point
 #T1: age of behavioral test, fNIRS, and sex
@@ -79,6 +85,9 @@ rm(list = c("overview",
             "ages_T2",
             "ages_T4",
             "demographicQuestionnaire"))
+=======
+rm(overview)
+>>>>>>> ba53938104ed8fba84f2ca9009c1193944418f58
 ```
 
 
