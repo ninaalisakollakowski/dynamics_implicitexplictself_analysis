@@ -10,7 +10,6 @@ output: html_document
 library(dplyr)
 library(mice)
 library(psych)
-#library(semTools)
 library(lavaan)
 
 nImputations <- 500
@@ -52,6 +51,20 @@ continuousVariables <- c("spatialContingency_looking",
 dichotomousVariables <- c("mirrorSelfRecognition", 
                           "videoSelfRecognition", 
                           "bodySizeDoor_errors")
+demographicVariables_numeric <- c("education_mother",
+                                  "education_father",
+                                  "Age_Mother",
+                                  "Age_Father",
+                                  "age_T1_spatialContingency",
+                                  "age_T1_temporalContingency",
+                                  "age_T2_reaching",
+                                  "age_sensoryAttenuation",
+                                  "age_T3")
+demographicVariables_factors <- c("Marital_Status_num",
+                                  "Siblings_num",
+                                  "Primary_Language_Child_num",
+                                  "Primary_Caretaker_num",
+                                  "sex")
 ```
 
 ##load dataset
@@ -62,15 +75,99 @@ rm(selfData)
 nObservations = nrow(currentData)
 ```
 
+## Compare demographic information of children who contributed more or less data
+```{r prepare}
+#add information on how much data was contributed by each child
+#T1_only: only contributed to T1 (therefore other age variables empty)
+#T1_and_T2: contributed data to T1 and T2 (therefore T3 age variable empty)
+#allTimepoints: contributed data to all time points
+demographics <- currentData %>% 
+  mutate(time = ifelse(is.na(age_T2_reaching) & is.na(age_T3), "T1_only", 
+                       ifelse(!is.na(age_T2_reaching) & is.na(age_T3), "T1_and_T2", 
+                              "allTimepoints")))
+
+#summarise numeric demographic variables
+demographics %>%
+  group_by(time) %>%
+  summarise(across(all_of(demographicVariables_numeric),  ~ mean(.x, na.rm = TRUE)),
+                   n = n())
+```
+
+```{r maternal education}
+# = the higher the number, the more education in school and tertiary education) -> no significant differences
+model.edu_mother <- lm(education_mother  ~ time, data = demographics)
+summary(model.edu_mother)
+```
+
+```{r paternal education}
+#(= the higher the number, the more education in school and tertiary education) -> no significant differences
+model.edu_father <- lm(education_father  ~ time, data = demographics)
+summary(model.edu_father)
+```
+
+```{r maternal age}
+#age of mother at T1 -> no significant differences
+model.age_mother <- lm(Age_Mother  ~ time, data = demographics)
+summary(model.age_mother)
+```
+
+```{r paternal age}
+#age of father at T1 -> no significant differences
+model.age_father <- lm(Age_Father  ~ time, data = demographics)
+summary(model.age_father)
+```
+
+```{r child age}
+#age of child at T1 (as only this information is available for all children) -> no significant differences
+model.age_child <- lm(age_T1_spatialContingency  ~ time, data = demographics)
+summary(model.age_child)
+```
+
+```{r marital status}
+# (0 = unmarried, 1 = married, 2 = divorced, 3 = widowed) -> not significant
+demo_marital_status <- table(demographics_num$Marital_Status_num, demographics_num$time)
+chisq.test(demo_marital_status)
+```
+
+```{r siblings}
+# (0 = no siblings, 1 = at least one sibling) -> not significant
+demo_siblings <- table(demographics_num$Siblings_num, demographics_num$time)
+chisq.test(demo_siblings)
+```
+
+```{r language}
+#primary language of child (1 = german, 0 = other) -> significant
+demo_language <- table(demographics_num$Primary_Language_Child_num, demographics_num$time)
+chisq.test(demo_language)
+#more German speaking children contributed data only to T1 (9/0) than to T1 and T2 (5/2) than contributed data to all time points (96/4)
+```
+
+```{r caretaker}
+#primary caretaker at T1 (0 = mother, 1 = father, 2 = both) -> not significant
+demo_caretaker <- table(demographics_num$Primary_Caretaker_num, demographics_num$time)
+chisq.test(demo_caretaker)
+```
+
+```{r sex}
+#sex of child (m = male, w = female) -> significant
+demo_sex <- table(demographics_num$sex, demographics_num$time)
+chisq.test(demo_sex)
+#more male children contributed data only to T1 (9/1), or to T1 and T2 (7/2) than contributed data to all time points (49/51)
+```
+
 ##check for systematic missingness in data
 conduct Little's MCAR test to confirm that data is missing at random
 ```{r}
 naniar::mcar_test(currentData) # p = .046
+
+#check if data is not MCAR because of dropouts
 naniar::mcar_test(currentData %>% 
-                    filter(if_any(all_of(explicitSelfMeasures), ~ !is.na(.)))) # p = .073
+                    filter(if_any(all_of(explicitSelfMeasures), ~ !is.na(.)))) # p = .073 -> not the case
+
+#check if data is not MCAR because of neuro-cognitive measures
 naniar::mcar_test(currentData %>% 
                     select(-starts_with("temporalContingency"),
-                           -starts_with("sensoryAttenuation"))) # p = .323
+                           -starts_with("sensoryAttenuation"))) # p = .323 -> this seems to be the case
 ```
 
 
@@ -272,14 +369,14 @@ otherVariables_implicit <- vector("list", nImputations)
 for (i in 1:nImputations){
   curDataset <- complete(imputedData, action = i)
   
-   factorScore_buffer <- curDataset %>%
+  factorScore_buffer <- curDataset %>%
     select(all_of(setdiff(implicitSelfMeasures, excludedVariables_implicit_KMO))) %>%
     factor.scores(x = ., relevantFactorLoadings_implicit)
   
   factorScores_implicit[[i]] <- factorScore_buffer$scores
   
   otherVariables_implicit[[i]] <- data.matrix(curDataset %>%
-    select(all_of(simplify2array(excludedVariables_implicit))))
+                                                select(all_of(simplify2array(excludedVariables_implicit))))
 }
 rm(factorScore_buffer)
 rm(curDataset)
@@ -291,9 +388,9 @@ otherVariables_implicit_avg <- apply(simplify2array(otherVariables_implicit), c(
 #combine factor scores and scores for excluded variables into dataframe for implicit self
 implicitSelf <- cbind(as.data.frame(factorScores_implicit_avg), as.data.frame(otherVariables_implicit_avg))
 implicitSelf <- implicitSelf %>%
-   rename(implicitFactor1 = PA1,
-          implicitFactor2 = PA2,
-          implicitFactor3 = PA3) %>%
+  rename(implicitFactor1 = PA1,
+         implicitFactor2 = PA2,
+         implicitFactor3 = PA3) %>%
   mutate(id = 1:nObservations)
 ```
 
@@ -344,7 +441,7 @@ factorScores_explicit <- vector("list", nImputations)
 for (i in 1:nImputations){
   curDataset <- complete(imputedData, action = i)
   
-   factorScore_buffer <- curDataset %>%
+  factorScore_buffer <- curDataset %>%
     select(all_of(explicitSelfMeasures)) %>%
     factor.scores(x = ., relevantFactorLoadings_explicit)
   
@@ -358,10 +455,10 @@ factorScores_explicit_avg <- apply(simplify2array(factorScores_explicit), c(1,2)
 
 #combine factor scores into dataframe for explicit self
 explicitSelf <- as.data.frame(factorScores_explicit_avg) %>%
-   rename(explicitFactor1 = PA1,
-          explicitFactor2 = PA2,
-          explicitFactor3 = PA3,
-          explicitFactor4 = PA4) %>%
+  rename(explicitFactor1 = PA1,
+         explicitFactor2 = PA2,
+         explicitFactor3 = PA3,
+         explicitFactor4 = PA4) %>%
   mutate(id = 1:nObservations)
 ```
 
