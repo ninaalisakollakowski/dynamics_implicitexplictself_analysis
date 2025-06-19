@@ -198,12 +198,6 @@ save(imputedData, file = "imputedData.Rdata")
 load("imputedData.Rdata")
 ```
 
-## define factor variables back to numeric
-otherwise correlation function won't work
-```{r}
-currentData[dichotomousVariables] <- lapply(currentData[dichotomousVariables], numeric)
-```
-
 ## compute correlation matrix for implicit/explicit measures for each imputed dataset
 use psych::mixedCor for this
 ```{r echo=FALSE}
@@ -216,6 +210,9 @@ standardDeviations_explicit <- vector("list", nImputations)
 for (i in 1:nImputations){
   #extract current imputed dataset
   curDataset <- complete(imputedData, action = i)
+  
+  #define factor variables back to numeric as otherwise correlation function does not work
+  curDataset[dichotomousVariables] <- lapply(curDataset[dichotomousVariables], as.numeric)
   
   #compute standard deviations of measures as a matrix as needed for covariance matrix
   standardDeviations_implicit[[i]] <- diag(sapply(curDataset %>%
@@ -276,7 +273,7 @@ colnames(correlation_explicit) <- explicitSelfMeasures
 
 
 ## compute CFA of implicit/explicit measures
-MLR estimator
+MLR estimator -> not possible because computing it with covariance matrix only
 evaluate fit using X2-test, RMSEA, SRMR, CFI
 good fit if 3/4 indicators suggest good fit
 X2 = non-significant
@@ -284,24 +281,22 @@ RMSEA < .08
 SRMR <.11
 CFI >.95
 ```{r CFA implicit}
-implicitCFA.model <- 'implicit =~ spatialContingency_looking + 
-                                  spatialContingency_legs + 
-                                  temporalContingency_looking + 
-                                  temporalContingency_left +
-                                  temporalContingency_right + 
-                                  reaching_arm +
-                                  reaching_head +
-                                  sensoryAttenuation_pos +
-                                  sensoryAttenuation_neg'
-implicitCFA <- cfa(implicitCFA.model, sample.cov = covariance_implicit, sample.nobs = nObservations) 
+implicitCFA.model <- "implicit =~ spatialContingency_looking + spatialContingency_legs + temporalContingency_looking + temporalContingency_left + temporalContingency_right + reaching_arm + reaching_head + sensoryAttenuation_pos + sensoryAttenuation_neg"
+
+implicitCFA <- cfa(implicitCFA.model, 
+                   sample.cov = covariance_implicit, 
+                   sample.nobs = nObservations,
+                   estimator = "ML")
+
 summary(implicitCFA)
 fitMeasures(implicitCFA, fit.measures = c("rmsea", "srmr", "cfi"))
 ```
 significant X2-test (p = 0.000) -> bad
-RMSEA > .08 (0.151) -> bad
-SRMR > .11 (0.123) -> bad
-CFI < .95 (0.302) -> bad
-all indicators show bad fit of CFA for implicit measures -> perform EFA
+RMSEA > .08 (0.101) -> bad
+SRMR < .11 (0.101) -> good
+CFI < .95 (0.440) -> bad
+3/4 indicators show bad fit of CFA for implicit measures -> perform EFA
+
 ```{r CFA explicit}
 explicitCFA.model <- 'explicit =~ mirrorSelfRecognition + 
                                   videoSelfRecognition + 
@@ -314,21 +309,21 @@ explicitCFA <- cfa(explicitCFA.model, sample.cov = covariance_explicit, sample.n
 summary(explicitCFA)
 fitMeasures(explicitCFA, fit.measures = c("rmsea", "srmr", "cfi"))
 ```
-significant X2-test (p = 0.019) -> bad
-RMSEA > .08 (0.089) -> bad
-SRMR < .11 (0.075) -> good
-CFI < .95 (0.692) -> bad
+significant X2-test (p = 0.022) -> bad
+RMSEA > .08 (0.087) -> bad
+SRMR < .11 (0.074) -> good
+CFI < .95 (0.685) -> bad
 3/4 indicators show bad fit of CFA for explicit measures -> perform EFA
 
 ##perform EFA for implicit measures
 1) Bartlett's test to check if correlation matrix different from identity matrix (needs to be significant)
-                    ```{r Bartlett}
+```{r Bartlett}
 cortest.bartlett(correlation_implicit, n = nObservations) #significant -> proceed
 ```
 
 2) KMO >.5, otherwise exclude variables with smallest KMO until criterion is reached
 ```{r KMO}
-KMO(correlation_implicit) #KMO = 0.47, exclude temporalContingency_left (0.42)
+KMO(correlation_implicit) #KMO = 0.5, exclude temporalContingency_left (0.46)
 correlation_implicit1 <- correlation_implicit[!rownames(correlation_implicit) == "temporalContingency_left",
                                               !colnames(correlation_implicit) == "temporalContingency_left"]
 excludedVariables_implicit_KMO <- list("temporalContingency_left")
@@ -357,6 +352,7 @@ print.psych(efa.implicit, cut = .4, digits=3, sort=TRUE)
 
 #exclude variables that don't load on any factor with loading of >=.4
 excludedVariables_implicit <- append(excludedVariables_implicit, c("temporalContingency_looking",
+                                                                   "temporalContingency_right",
                                                                    "sensoryAttenuation_neg",
                                                                    "sensoryAttenuation_pos"))
 
@@ -415,7 +411,7 @@ cortest.bartlett(correlation_explicit, n = nObservations) #significant -> procee
 
 2) KMO >.5, otherwise exclude variables with smallest KMO until criterion is reached
 ```{r KMO}
-KMO(correlation_explicit) #KMO = 0.53 -> proceed
+KMO(correlation_explicit) #KMO = 0.51 -> proceed
 ```
 
 3) parallel analysis with reduced correlation matrix to decide number of factors
@@ -423,16 +419,21 @@ KMO(correlation_explicit) #KMO = 0.53 -> proceed
 ```{r parallel analysis}
 fa.parallel(correlation_explicit, n.obs = nObservations, n.iter = 1000, fm = "ml", fa = "fa")
 ```
-parallel analysis suggests 4 factors  
+parallel analysis suggests 3 factors  
 
 4) run EFA with principal axis factoring with oblique (direct oblimin) rotation
 ```{r EFA}
 #run EFA with 3 factors as suggested by parallel analysis
-efa.explicit <- fa(correlation_explicit, nfactors = 4, n.obs = nObservations, 
+efa.explicit <- fa(correlation_explicit, nfactors = 3, n.obs = nObservations, 
                    rotate = 'oblimin', fm = 'pa')
 
 #print results: cut-off of .4 as only loadings with >=.4 will be assigned to this factor
 print.psych(efa.explicit, cut = .4, digits=3, sort=TRUE) 
+
+#exclude variables that don't load on any factor with loading of >=.4
+excludedVariables_explicit <- c("selfUnderstanding_passed",
+                                "videoSelfRecognition",
+                                "bodyObstacle_errors")
 ```
 
 5) assign variables to factors with loadings of >=.4
@@ -446,35 +447,47 @@ relevantFactorLoadings_explicit[abs(relevantFactorLoadings_explicit) < 0.4] <- 0
 
 6) calculate factor scores
 ```{r factor scores}
-#initialize lists for factor scores
+#initialize lists for factor scores and all excluded variables
 factorScores_explicit <- vector("list", nImputations)
+otherVariables_explicit <- vector("list", nImputations)
 
-#calculate factor scores for each imputed dataset
+#calculate factor scores and scores for excluded variables for each imputed dataset
 for (i in 1:nImputations){
   curDataset <- complete(imputedData, action = i)
+  
+  #define factor variables back to numeric to be able to compute means
+  curDataset[dichotomousVariables] <- lapply(curDataset[dichotomousVariables], as.numeric)
   
   factorScore_buffer <- curDataset %>%
     select(all_of(explicitSelfMeasures)) %>%
     factor.scores(x = ., relevantFactorLoadings_explicit)
   
   factorScores_explicit[[i]] <- factorScore_buffer$scores
+  
+  otherVariables_explicit[[i]] <- data.matrix(curDataset %>%
+                                                select(all_of(simplify2array(excludedVariables_explicit))))
 }
 rm(factorScore_buffer)
 rm(curDataset)
 
-#create average factor scores for all datasets
+#create average factor scores and excluded variable scores for all datasets
 factorScores_explicit_avg <- apply(simplify2array(factorScores_explicit), c(1,2), mean)
+otherVariables_explicit_avg <- apply(simplify2array(otherVariables_explicit), c(1,2), mean)
 
-#combine factor scores into dataframe for explicit self
-explicitSelf <- as.data.frame(factorScores_explicit_avg) %>%
+#combine factor scores and scores for excluded variables into dataframe for explicit self
+explicitSelf <- cbind(as.data.frame(factorScores_explicit_avg), as.data.frame(otherVariables_explicit_avg))
+explicitSelf <- explicitSelf %>%
   rename(explicitFactor1 = PA1,
          explicitFactor2 = PA2,
-         explicitFactor3 = PA3,
-         explicitFactor4 = PA4) %>%
+         explicitFactor3 = PA3) %>%
   mutate(id = 1:nObservations)
+
+#for dichotomous excluded variables, make sure they are either 1 (=0) or 2 (=1) (as averaging of the imputed datasets might produce fractionals)
+explicitSelf$videoSelfRecognition <- ifelse(explicitSelf$videoSelfRecognition > 1.5,2,1)
 ```
 
-## linear regressions of implicit -> explicit self
+
+## linear regressions of implicit -> explicit self TODO
 run regressions of each explicit factor/variable with all implicit factors/variables as predictors
 ```{r prepare dataframe}
 #merge implicit and explicit dataset
@@ -485,7 +498,8 @@ selfData <- merge(implicitSelf, explicitSelf, by = "id")
 explicitFactor1.model <- lm(explicitFactor1 ~ implicitFactor1 + 
                               implicitFactor2 + 
                               implicitFactor3 + 
-                              temporalContingency_left + 
+                              temporalContingency_left +
+                              temporalContingency_right +
                               temporalContingency_looking + 
                               sensoryAttenuation_neg + 
                               sensoryAttenuation_pos, 
@@ -496,7 +510,8 @@ summary(explicitFactor1.model)
 explicitFactor2.model <- lm(explicitFactor2 ~ implicitFactor1 + 
                               implicitFactor2 + 
                               implicitFactor3 + 
-                              temporalContingency_left + 
+                              temporalContingency_left +
+                              temporalContingency_right +
                               temporalContingency_looking + 
                               sensoryAttenuation_neg + 
                               sensoryAttenuation_pos, 
@@ -507,15 +522,16 @@ summary(explicitFactor2.model)
 explicitFactor3.model <- lm(explicitFactor3 ~ implicitFactor1 + 
                               implicitFactor2 + 
                               implicitFactor3 + 
-                              temporalContingency_left + 
+                              temporalContingency_left +
+                              temporalContingency_right +
                               temporalContingency_looking + 
                               sensoryAttenuation_neg + 
-                              sensoryAttenuation_pos, 
+                              sensoryAttenuation_pos,
                             data = selfData)
 summary(explicitFactor3.model)
 ```
-```{r explicit factor 4}
-explicitFactor4.model <- lm(explicitFactor4 ~ implicitFactor1 + 
+```{r self understanding}
+selfUnderstanding.model <- lm(selfUnderstanding_passed ~ implicitFactor1 + 
                               implicitFactor2 + 
                               implicitFactor3 + 
                               temporalContingency_left + 
@@ -523,5 +539,27 @@ explicitFactor4.model <- lm(explicitFactor4 ~ implicitFactor1 +
                               sensoryAttenuation_neg + 
                               sensoryAttenuation_pos, 
                             data = selfData)
-summary(explicitFactor4.model)
+summary(selfUnderstanding.model)
+```
+```{r video self-recognition}
+videoSelfRecognition.model <- lm(videoSelfRecognition ~ implicitFactor1 + 
+                              implicitFactor2 + 
+                              implicitFactor3 + 
+                              temporalContingency_left + 
+                              temporalContingency_looking + 
+                              sensoryAttenuation_neg + 
+                              sensoryAttenuation_pos, 
+                            data = selfData)
+summary(videoSelfRecognition.model)
+```
+```{r body obstacle}
+bodyObstacle.model <- lm(bodyObstacle_errors ~ implicitFactor1 + 
+                              implicitFactor2 + 
+                              implicitFactor3 + 
+                              temporalContingency_left + 
+                              temporalContingency_looking + 
+                              sensoryAttenuation_neg + 
+                              sensoryAttenuation_pos, 
+                            data = selfData)
+summary(bodyObstacle.model)
 ```
