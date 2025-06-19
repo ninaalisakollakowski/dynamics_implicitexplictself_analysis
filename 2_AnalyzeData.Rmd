@@ -322,29 +322,35 @@ cortest.bartlett(correlation_implicit, n = nObservations) #significant -> procee
 ```
 
 2) KMO >=.5, otherwise exclude variables with smallest KMO until criterion is reached
+as EFA exceeds maximum iteration, trying to exclude all variables with KMO <.5 iteratively
 ```{r KMO}
-KMO(correlation_implicit) #KMO = 0.5, exclude reaching_head (0.44)
+KMO(correlation_implicit) #KMO = 0.5 overall but several variables <.5 -> exclude reaching_head (0.44)
 correlation_implicit1 <- correlation_implicit[!rownames(correlation_implicit) == "reaching_head",
                                               !colnames(correlation_implicit) == "reaching_head"]
 excludedVariables_implicit_KMO <- list("reaching_head")
 excludedVariables_implicit <- list("reaching_head")
 
 #run KMO again
-KMO(correlation_implicit1) #KMO = 0.54 -> proceed
+KMO(correlation_implicit1) #KMO = 0.54 overall but several variables <.5 -> exclude temporalContingency_left (0.49)
+correlation_implicit2 <- correlation_implicit1[!rownames(correlation_implicit1) == "temporalContingency_left",
+                                              !colnames(correlation_implicit1) == "temporalContingency_left"]
+excludedVariables_implicit_KMO <- append(excludedVariables_implicit_KMO, "temporalContingency_left")
+excludedVariables_implicit <- append(excludedVariables_implicit, "temporalContingency_left")
 
+KMO(correlation_implicit2) #KMO = 0.56 overall, all variables over >.5 -> proceed
 ```
 
 3) parallel analysis with reduced correlation matrix to decide number of factors
 
 ```{r parallel analysis}
-fa.parallel(correlation_implicit1, n.obs = nObservations, n.iter = 1000, fm = "ml", fa = "fa")
+fa.parallel(correlation_implicit2, n.obs = nObservations, n.iter = 1000, fm = "ml", fa = "fa")
 ```
-parallel analysis suggests 3 factors      
+parallel analysis suggests 2 factors      
 
 4) run EFA with principal axis factoring with oblique (direct oblimin) rotation
 ```{r EFA}
 #run EFA with 3 factors as suggested by parallel analysis
-efa.implicit <- fa(correlation_implicit1, nfactors = 3, n.obs = nObservations, 
+efa.implicit <- fa(correlation_implicit2, nfactors = 2, n.obs = nObservations, 
                    rotate = 'oblimin', fm = 'pa')
 
 #print results: cut-off of .4 as only loadings with >=.4 will be assigned to this factor
@@ -397,8 +403,7 @@ otherVariables_implicit_avg <- apply(simplify2array(otherVariables_implicit), c(
 implicitSelf <- cbind(as.data.frame(factorScores_implicit_avg), as.data.frame(otherVariables_implicit_avg))
 implicitSelf <- implicitSelf %>%
   rename(implicitFactor1 = PA1,
-         implicitFactor2 = PA2,
-         implicitFactor3 = PA3) %>%
+         implicitFactor2 = PA2) %>%
   mutate(id = 1:nObservations)
 ```
 
@@ -410,21 +415,34 @@ cortest.bartlett(correlation_explicit, n = nObservations) #significant -> procee
 ```
 
 2) KMO >.5, otherwise exclude variables with smallest KMO until criterion is reached
+as EFA exceeds maximum iteration, trying to exclude all variables with KMO <.5 iteratively
 ```{r KMO}
-KMO(correlation_explicit) #KMO = 0.51 -> proceed
+KMO(correlation_explicit) #KMO = 0.51 but several variables below .5 -> exclude bodySizeToys_errorFree (0.33)
+correlation_explicit1 <- correlation_explicit[!rownames(correlation_explicit) == "bodySizeToys_errorFree",
+                                              !colnames(correlation_explicit) == "bodySizeToys_errorFree"]
+excludedVariables_explicit_KMO <- list("bodySizeToys_errorFree")
+excludedVariables_explicit <- list("bodySizeToys_errorFree")
+
+KMO(correlation_explicit1) #overall KMO = 0.61, but variables below .5 -> exclude bodyObstacle_errorFree (0.49)
+correlation_explicit2 <- correlation_explicit1[!rownames(correlation_explicit1) == "bodyObstacle_errorFree",
+                                              !colnames(correlation_explicit1) == "bodyObstacle_errorFree"]
+excludedVariables_explicit_KMO <- append(excludedVariables_explicit_KMO, "bodyObstacle_errorFree")
+excludedVariables_explicit <- append(excludedVariables_explicit, "bodyObstacle_errorFree")
+
+KMO(correlation_explicit2) #overall KMO = 0.63 & all variables <.5 -> proceed
 ```
 
 3) parallel analysis with reduced correlation matrix to decide number of factors
 
 ```{r parallel analysis}
-fa.parallel(correlation_explicit, n.obs = nObservations, n.iter = 1000, fm = "ml", fa = "fa")
+fa.parallel(correlation_explicit2, n.obs = nObservations, n.iter = 1000, fm = "ml", fa = "fa")
 ```
-parallel analysis suggests 3 factors  
+parallel analysis suggests 2 factors  
 
 4) run EFA with principal axis factoring with oblique (direct oblimin) rotation
 ```{r EFA}
 #run EFA with 3 factors as suggested by parallel analysis
-efa.explicit <- fa(correlation_explicit, nfactors = 3, n.obs = nObservations, 
+efa.explicit <- fa(correlation_explicit2, nfactors = 2, n.obs = nObservations, 
                    rotate = 'oblimin', fm = 'pa')
 
 #print results: cut-off of .4 as only loadings with >=.4 will be assigned to this factor
