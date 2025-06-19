@@ -253,6 +253,7 @@ reachingToSelfData <- Result %>%
   group_by(ID, Target_Location_general) %>%
   summarise(n_trials = n(),
             proportionContact = sum(Contact_Success)/n_trials) %>% #calculate proportion of trials with successful contact
+  mutate(proportionContact = ifelse(n_trials < 2, NA, proportionContact)) %>% #exclude data if less than 2 trials contributed
   select(-n_trials) %>%
   tidyr::pivot_wider(names_from = Target_Location_general, values_from = proportionContact) %>%
   rename(id = ID,
@@ -276,7 +277,7 @@ rm(sensoryAttenuationData_buffer)
 ## Mirror Self-Recognition Data
 ```{r}
 library(dplyr)
-mirrorSelfRecognitionData_buffer <- readxl::read_excel("Z:/Längsschnitt Selbst/Auswertung/T4/MirrorSelfRecognition/Hauptkodierung_LinaMöllen/Coding_MSR_T4_Lina_final.xlsx") %>%
+mirrorSelfRecognitionData_buffer <- readxl::read_excel("Z:/Längsschnitt Selbst/Auswertung/T4/MirrorSelfRecognition/Hauptkodierung_LinaMöllen/Coding_MSR_T4_Lina_final_corrected.xlsx", na = "-99") %>%
   select(ID, Recognition)
 mirrorSelfRecognitionData <- mirrorSelfRecognitionData_buffer %>%
   rename(id = ID,
@@ -315,10 +316,10 @@ rm(videoSelfRecognitionData_blind)
 library(dplyr)
 load("Z:/Längsschnitt Selbst/Auswertung/T4/BodyAsObject/Door/RScripts/final_data_BodyAsObject_Door.RData")
 bodySizeDoorData <- all_results %>%
-  mutate(errors = ifelse(errors_binary == "Yes", 1, 0)) %>% #recode: 1 = error present, 0 = no errors
-  select(ID, errors) %>%
+  mutate(errorFree = ifelse(errors_binary == "Yes", 0, 1)) %>% #recode: 0 = error present, 1 = no errors
+  select(ID, errorFree) %>%
   rename(id = ID,
-         bodySizeDoor_errors = errors)
+         bodySizeDoor_errorFree = errorFree)
 
 rm(all_results)
 ```
@@ -328,11 +329,12 @@ rm(all_results)
 library(dplyr)
 load("Z:/Längsschnitt Selbst/Auswertung/T4/BodyAsObject/Toys/RScripts/allData.RData")
 bodySizeToysData <- allData %>%
-  mutate(error_binary = ifelse(errors == 0, 0, 1)) %>% #check if trial with error (1) or not (0)
-  select(id, toy, error_binary) %>%
+  mutate(errorFree = ifelse(errors == 0, 1, 0)) %>% #check if trial without error (1) or with (0)
+  mutate(errorFree = ifelse(interest == 1, NA, errorFree)) %>% #exclude trials with interest too low
+  select(id, toy, errorFree) %>%
   group_by(id) %>%
-  summarise(m_errors = mean(error_binary)) %>% #calculate proportion of trials with errors
-  rename(bodySizeToys_errors = m_errors)
+  summarise(m_errorFree = mean(errorFree)) %>% #calculate proportion of trials without errors
+  rename(bodySizeToys_errorFree = m_errorFree)
 
 rm(allData)
 ```
@@ -342,11 +344,11 @@ rm(allData)
 library(dplyr)
 load("Z:/Längsschnitt Selbst/Auswertung/T4/BodyAsObject/Obstacle/RScripts/allData.RData")
 bodyAsObstacleData <- allData %>%
-  mutate(error = ifelse(errors_binary == "Yes", 1, 0)) %>% #recode: 1 = error present, 0 = no errors
+  mutate(errorFree = ifelse(errors_binary == "Yes", 0, 1)) %>% #recode: 0 = error present, 1 = no errors
   group_by(ID) %>%
-  summarise(m_errors = mean(error))%>% #calculate proportion of trials with errors
+  summarise(m_errorFree = mean(errorFree))%>% #calculate proportion of trials without errors
   rename(id = ID,
-         bodyObstacle_errors = m_errors)
+         bodyObstacle_errorFree = m_errorFree)
 
 rm(allData)
 ```

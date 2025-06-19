@@ -30,9 +30,9 @@ implicitSelfMeasures <- c("spatialContingency_looking",
                           "sensoryAttenuation_neg")
 explicitSelfMeasures <- c("mirrorSelfRecognition", 
                           "videoSelfRecognition", 
-                          "bodySizeDoor_errors",
-                          "bodySizeToys_errors", 
-                          "bodyObstacle_errors", 
+                          "bodySizeDoor_errorFree",
+                          "bodySizeToys_errorFree", 
+                          "bodyObstacle_errorFree", 
                           "selfUnderstanding_passed", 
                           "placing_correct")
 continuousVariables <- c("spatialContingency_looking", 
@@ -44,13 +44,13 @@ continuousVariables <- c("spatialContingency_looking",
                          "reaching_head",
                          "sensoryAttenuation_pos",
                          "sensoryAttenuation_neg",
-                         "bodySizeToys_errors", 
-                         "bodyObstacle_errors", 
+                         "bodySizeToys_errorFree", 
+                         "bodyObstacle_errorFree", 
                          "selfUnderstanding_passed", 
                          "placing_correct")
 dichotomousVariables <- c("mirrorSelfRecognition", 
                           "videoSelfRecognition", 
-                          "bodySizeDoor_errors")
+                          "bodySizeDoor_errorFree")
 demographicVariables_numeric <- c("education_mother",
                                   "education_father",
                                   "Age_Mother",
@@ -300,19 +300,19 @@ CFI < .95 (0.440) -> bad
 ```{r CFA explicit}
 explicitCFA.model <- 'explicit =~ mirrorSelfRecognition + 
                                   videoSelfRecognition + 
-                                  bodySizeDoor_errors + 
-                                  bodySizeToys_errors +
-                                  bodyObstacle_errors + 
+                                  bodySizeDoor_errorFree + 
+                                  bodySizeToys_errorFree +
+                                  bodyObstacle_errorFree + 
                                   selfUnderstanding_passed +
                                   placing_correct'
 explicitCFA <- cfa(explicitCFA.model, sample.cov = covariance_explicit, sample.nobs = nObservations) 
 summary(explicitCFA)
 fitMeasures(explicitCFA, fit.measures = c("rmsea", "srmr", "cfi"))
 ```
-significant X2-test (p = 0.022) -> bad
+significant X2-test (p = 0.021) -> bad
 RMSEA > .08 (0.087) -> bad
-SRMR < .11 (0.074) -> good
-CFI < .95 (0.685) -> bad
+SRMR < .11 (0.072) -> good
+CFI < .95 (0.684) -> bad
 3/4 indicators show bad fit of CFA for explicit measures -> perform EFA
 
 ##perform EFA for implicit measures
@@ -321,16 +321,16 @@ CFI < .95 (0.685) -> bad
 cortest.bartlett(correlation_implicit, n = nObservations) #significant -> proceed
 ```
 
-2) KMO >.5, otherwise exclude variables with smallest KMO until criterion is reached
+2) KMO >=.5, otherwise exclude variables with smallest KMO until criterion is reached
 ```{r KMO}
-KMO(correlation_implicit) #KMO = 0.5, exclude temporalContingency_left (0.46)
-correlation_implicit1 <- correlation_implicit[!rownames(correlation_implicit) == "temporalContingency_left",
-                                              !colnames(correlation_implicit) == "temporalContingency_left"]
-excludedVariables_implicit_KMO <- list("temporalContingency_left")
-excludedVariables_implicit <- list("temporalContingency_left")
+KMO(correlation_implicit) #KMO = 0.5, exclude reaching_head (0.44)
+correlation_implicit1 <- correlation_implicit[!rownames(correlation_implicit) == "reaching_head",
+                                              !colnames(correlation_implicit) == "reaching_head"]
+excludedVariables_implicit_KMO <- list("reaching_head")
+excludedVariables_implicit <- list("reaching_head")
 
 #run KMO again
-KMO(correlation_implicit1) #KMO = 0.51 -> proceed
+KMO(correlation_implicit1) #KMO = 0.54 -> proceed
 
 ```
 
