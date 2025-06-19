@@ -18,7 +18,7 @@ nImputations <- 500
 ## Defining measures
 
 ```{r}
-##defining measures----
+##defining measures
 implicitSelfMeasures <- c("spatialContingency_looking", 
                           "spatialContingency_legs", 
                           "temporalContingency_looking",
@@ -60,11 +60,11 @@ demographicVariables_numeric <- c("education_mother",
                                   "age_T2_reaching",
                                   "age_sensoryAttenuation",
                                   "age_T3")
-demographicVariables_factors <- c("Marital_Status_num",
-                                  "Siblings_num",
-                                  "Primary_Language_Child_num",
-                                  "Primary_Caretaker_num",
-                                  "sex")
+demographicVariables_factor <- c("Marital_Status_num",
+                                 "Siblings_num",
+                                 "Primary_Language_Child_num",
+                                 "Primary_Caretaker_num",
+                                 "sex")
 ```
 
 ##load dataset
@@ -73,6 +73,12 @@ load("joinedSelfData.RData")
 currentData <- selfData
 rm(selfData)
 nObservations = nrow(currentData)
+```
+
+## Define correct variable types
+For imputation to choose correct method for imputation, dichotomous variables need to be defined as factor
+```{r}
+currentData[dichotomousVariables] <- lapply(currentData[dichotomousVariables], factor)
 ```
 
 ## Compare demographic information of children who contributed more or less data
@@ -90,7 +96,7 @@ demographics <- currentData %>%
 demographics %>%
   group_by(time) %>%
   summarise(across(all_of(demographicVariables_numeric),  ~ mean(.x, na.rm = TRUE)),
-                   n = n())
+            n = n())
 ```
 
 ```{r maternal education}
@@ -125,71 +131,77 @@ summary(model.age_child)
 
 ```{r marital status}
 # (0 = unmarried, 1 = married, 2 = divorced, 3 = widowed) -> not significant
-demo_marital_status <- table(demographics_num$Marital_Status_num, demographics_num$time)
-chisq.test(demo_marital_status)
+demo_marital_status <- table(demographics$Marital_Status_num, demographics$time)
+fisher.test(demo_marital_status) #using fisher's test as Chi-Square claims that approximation might be incorrect
 ```
 
 ```{r siblings}
 # (0 = no siblings, 1 = at least one sibling) -> not significant
-demo_siblings <- table(demographics_num$Siblings_num, demographics_num$time)
-chisq.test(demo_siblings)
+demo_siblings <- table(demographics$Siblings_num, demographics$time)
+fisher.test(demo_siblings)
 ```
 
 ```{r language}
-#primary language of child (1 = german, 0 = other) -> significant
-demo_language <- table(demographics_num$Primary_Language_Child_num, demographics_num$time)
-chisq.test(demo_language)
-#more German speaking children contributed data only to T1 (9/0) than to T1 and T2 (5/2) than contributed data to all time points (96/4)
+#primary language of child (1 = german, 0 = other) -> not significant
+demo_language <- table(demographics$Primary_Language_Child_num, demographics$time)
+fisher.test(demo_language)
 ```
 
 ```{r caretaker}
 #primary caretaker at T1 (0 = mother, 1 = father, 2 = both) -> not significant
-demo_caretaker <- table(demographics_num$Primary_Caretaker_num, demographics_num$time)
-chisq.test(demo_caretaker)
+demo_caretaker <- table(demographics$Primary_Caretaker_num, demographics$time)
+fisher.test(demo_caretaker)
 ```
 
 ```{r sex}
 #sex of child (m = male, w = female) -> significant
-demo_sex <- table(demographics_num$sex, demographics_num$time)
-chisq.test(demo_sex)
+demo_sex <- table(demographics$sex, demographics$time)
+fisher.test(demo_sex)
 #more male children contributed data only to T1 (9/1), or to T1 and T2 (7/2) than contributed data to all time points (49/51)
 ```
 
 ##check for systematic missingness in data
 conduct Little's MCAR test to confirm that data is missing at random
 ```{r}
-naniar::mcar_test(currentData) # p = .046
-
-#check if data is not MCAR because of dropouts
-naniar::mcar_test(currentData %>% 
-                    filter(if_any(all_of(explicitSelfMeasures), ~ !is.na(.)))) # p = .073 -> not the case
-
-#check if data is not MCAR because of neuro-cognitive measures
-naniar::mcar_test(currentData %>% 
-                    select(-starts_with("temporalContingency"),
-                           -starts_with("sensoryAttenuation"))) # p = .323 -> this seems to be the case
+#exclude demographic data here because with them in the model correlation of variables is too high to perform the test
+naniar::mcar_test(currentData %>%
+                    select(-all_of(demographicVariables_numeric),
+                           -all_of(demographicVariables_factor))) # p = .051 -> not the case
 ```
 
 
 ##scale dataset
 without scaling CFA was giving the warnings that "some observed variances are (at least) a factor 1000 times larger than others; use varTable(fit) to investigate"
 ```{r}
-currentData_scaled <- currentData %>% 
+currentData_scaled <- currentData %>%
+  select(-id) %>% #exclude id (throws errors otherwise)
   mutate_at(continuousVariables, 
-            ~(scale(.) %>% as.vector)) %>% 
-  select(-id)
+            ~(scale(.) %>% as.vector))
 ```
 
-##impute Data
+
+## impute Data
+if data is defined as factor or numerical, mice package will automatically select the correct imputation method for each variable type:
+(extract from mice help: By default, the method uses pmm, predictive mean matching (numeric data) logreg, logistic regression imputation (binary data, factor with 2 levels) polyreg, polytomous regression imputation for unordered categorical data (factor > 2 levels) polr, proportional odds model for (ordered, > 2 levels).)
 ```{r}
 #impute 500 different datasets and set seed to make reproducible
-imputedData <- mice(currentData_scaled, m = nImputations, print = FALSE, seed = 350)
+
+imputedData <- mice(currentData_scaled, 
+                    m = nImputations,
+                    print = FALSE, 
+                    seed = 350)
 save(imputedData, file = "imputedData.Rdata")
 ```
 
-#load imputed dataset
+## load imputed dataset
 ```{r}
 load("imputedData.Rdata")
+```
+
+## define factor variables back to numeric
+otherwise correlation function won't work
+```{r}
+currentData[dichotomousVariables] <- lapply(currentData[dichotomousVariables], numeric)
 ```
 
 ## compute correlation matrix for implicit/explicit measures for each imputed dataset
@@ -310,7 +322,7 @@ CFI < .95 (0.692) -> bad
 
 ##perform EFA for implicit measures
 1) Bartlett's test to check if correlation matrix different from identity matrix (needs to be significant)
-```{r Bartlett}
+                    ```{r Bartlett}
 cortest.bartlett(correlation_implicit, n = nObservations) #significant -> proceed
 ```
 
