@@ -337,9 +337,21 @@ excludedVariables_implicit_KMO <- list("temporalContingency_left")
 excludedVariables_implicit <- list("temporalContingency_left")
 
 #run KMO again
-KMO(correlation_implicit1) #KMO = 0.51 -> proceed
+KMO(correlation_implicit1) #KMO = 0.51 -> exclude reaching_head (0.43)
+correlation_implicit2 <- correlation_implicit1[!rownames(correlation_implicit1) == "reaching_head",
+                                              !colnames(correlation_implicit1) == "reaching_head"]
+excludedVariables_implicit_KMO <- append(excludedVariables_implicit_KMO, "reaching_head")
+excludedVariables_implicit <- append(excludedVariables_implicit, "reaching_head")
 
-cur_correlation_implicit <- correlation_implicit1
+KMO(correlation_implicit2) #KMO = 0.55, exclude sensoryAttenuation_neg (0.42)
+correlation_implicit3 <- correlation_implicit2[!rownames(correlation_implicit2) == "sensoryAttenuation_neg",
+                                              !colnames(correlation_implicit2) == "sensoryAttenuation_neg"]
+excludedVariables_implicit_KMO <- append(excludedVariables_implicit_KMO, "sensoryAttenuation_neg")
+excludedVariables_implicit <- append(excludedVariables_implicit, "sensoryAttenuation_neg")
+
+KMO(correlation_implicit3) #KMO = 0.59, all variables > 0.5
+
+cur_correlation_implicit <- correlation_implicit3
 ```
 
 3) parallel analysis with reduced correlation matrix to decide number of factors
