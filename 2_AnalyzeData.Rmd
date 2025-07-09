@@ -189,7 +189,8 @@ if data is defined as factor or numerical, mice package will automatically selec
 imputedData <- mice(currentData_scaled, 
                     m = nImputations,
                     print = FALSE, 
-                    seed = 350)
+                    seed = 350,
+                    where = )
 save(imputedData, file = "imputedData.Rdata")
 ```
 
