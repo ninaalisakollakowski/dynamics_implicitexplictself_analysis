@@ -149,10 +149,13 @@ bins_left_HbO <- data.frame(matrix(nrow = n_bins, ncol = 3))
 colnames(bins_left_HbO) <- c("bins", "t", "p")
 bins_left_HbO$bins <- 1:n_bins
 for (i in levels(fnirsData_binned$bins)){
-  currentTest <- fnirsData_binned %>%
+  currentData <- fnirsData_binned %>%
     filter(bins == i,
            hemisphere == "l") %>%
-    t.test(HbO ~ condition, data = ., paired = TRUE)
+    ungroup() %>%
+    select(subject, condition, HbO) %>%
+    tidyr::pivot_wider(names_from = "condition", values_from = "HbO")
+  currentTest <- t.test(currentData$delayed, currentData$online, paired = TRUE)
   bins_left_HbO[i, "p"] <- currentTest$p.value
   bins_left_HbO[i, "t"] <- currentTest$statistic
 }
@@ -185,7 +188,10 @@ for (i in levels(fnirsData_binned$bins)){
   currentTest <- fnirsData_binned %>%
     filter(bins == i,
            hemisphere == "r") %>%
-    t.test(HbO ~ condition, data = ., paired = TRUE)
+    ungroup() %>%
+    select(subject, condition, HbO) %>%
+    tidyr::pivot_wider(names_from = "condition", values_from = "HbO")
+  currentTest <- t.test(currentData$delayed, currentData$online, paired = TRUE)
   bins_right_HbO[i, "p"] <- currentTest$p.value
   bins_right_HbO[i, "t"] <- currentTest$statistic
 }
@@ -369,7 +375,7 @@ rm(cleandat)
 ## Placing Sticker on Self Data
 ```{r}
 library(dplyr)
-placingStickerData_buffer <- readxl::read_excel("Z:/Längsschnitt Selbst/Auswertung/T4/Placing/Coding_Placing_T4_StefanieKrammer.xlsx")
+placingStickerData_buffer <- readxl::read_excel("Z:/Längsschnitt Selbst/Auswertung/T4/Placing/Codings/Coding_Placing_T4_StefanieKrammer_corrected.xlsx")
 placingStickerData <- placingStickerData_buffer %>%
   mutate(correctPlace = ifelse(Placement == "of", 1, ifelse(Placement == -99, NA, 0))) %>% #check if correct placement (of = own face) or missing data
   select(ID, Type, correctPlace) %>%
