@@ -439,7 +439,7 @@ efa.implicit <- fa(cur_correlation_implicit, nfactors = 2, n.obs = nObservations
                    rotate = 'oblimin', fm = 'pa', max.iter = 1000)
 
 #print results: cut-off of .4 as only loadings with >=.4 will be assigned to this factor
-print.psych(efa.implicit, cut = .39, digits=3, sort=TRUE)
+print.psych(efa.implicit, digits=3, sort=TRUE)
 
 ```
 5) average imputed datasets for implicit variable scores
@@ -508,17 +508,20 @@ efa.explicit <- fa(cur_correlation_explicit, nfactors = 2, n.obs = nObservations
                    rotate = 'oblimin', fm = 'pa', max.iter = 1000)
 
 #print results: cut-off of .4 as only loadings with >=.4 will be assigned to this factor
-print.psych(efa.explicit, cut = .39, digits=3, sort=TRUE) 
+print.psych(efa.explicit, digits=2, sort=TRUE) 
 
 ```
 
-5) assign variables to factors with loadings of >=.35
+5) assign variables to factors with loadings of >=.39
 ```{r assign to explicit factors}
+#exclude variables that don't load on any factor with loading of >=.4
+excludedVariables_explicit <- append(excludedVariables_explicit, "videoSelfRecognition")
+
 #extract factor loading from EFA
 relevantFactorLoadings_explicit <- efa.explicit$loadings
 
-#replace loadings < .35 with 0 for correct calculation of factor scores
-relevantFactorLoadings_explicit[abs(relevantFactorLoadings_explicit) < 0.35] <- 0
+#replace loadings < .39 with 0 for correct calculation of factor scores
+relevantFactorLoadings_explicit[abs(relevantFactorLoadings_explicit) < 0.39] <- 0
 ```
 
 6) calculate factor scores
@@ -556,6 +559,11 @@ explicitSelf <- explicitSelf %>%
   rename(explicitFactor1 = PA1,
          explicitFactor2 = PA2) %>%
   mutate(id = 1:nObservations)
+
+#make dichotomous variables dichotomous as through averaging values are wrong
+explicitSelf <- explicitSelf %>%
+  mutate(videoSelfRecognition = videoSelfRecognition - 1) %>% #subtract one, as R turns factors into 1 and 2 values
+  mutate(videoSelfRecognition = ifelse(videoSelfRecognition < 0.5, 0, 1))
 ```
 
 
@@ -624,6 +632,22 @@ bodySizeToys.model <- lm(bodySizeToys_errorFree ~ spatialContingency_looking +
 summary(bodySizeToys.model)
 confint(bodySizeToys.model)
 ```
+```{r video-self recognition}
+videoSelfRecognition.model <- glm(videoSelfRecognition ~ spatialContingency_looking + 
+                                    spatialContingency_legs +
+                                    temporalContingency_looking +
+                                    temporalContingency_left +
+                                    temporalContingency_right +
+                                    reaching_arm +
+                                    reaching_head +
+                                    sensoryAttenuation_pos +
+                                    sensoryAttenuation_neg, 
+                                  data = selfData,
+                                  family = "binomial")
+summary(videoSelfRecognition.model)
+confint(videoSelfRecognition.model)
+```
+
 ##linear regressions controlled for language
 ```{r prepare dataframe with language}
 language_scores <- vector("list", nImputations)
@@ -677,32 +701,49 @@ confint(explicitFactor2_lang.model)
 ```
 ```{r body obstacle (controlled)}
 bodyObstacle_lang.model <- lm(bodyObstacle_errorFree ~ spatialContingency_looking + 
-                                   spatialContingency_legs +
-                                   temporalContingency_looking +
-                                   temporalContingency_left +
-                                   temporalContingency_right +
-                                   reaching_arm +
-                                   reaching_head +
-                                   sensoryAttenuation_pos +
-                                   sensoryAttenuation_neg +
-                                   frakis_vocabulary, 
-                                 data = selfData_language)
+                                spatialContingency_legs +
+                                temporalContingency_looking +
+                                temporalContingency_left +
+                                temporalContingency_right +
+                                reaching_arm +
+                                reaching_head +
+                                sensoryAttenuation_pos +
+                                sensoryAttenuation_neg +
+                                frakis_vocabulary, 
+                              data = selfData_language)
 summary(bodyObstacle_lang.model)
 confint(bodyObstacle_lang.model)
 ```
 
 ```{r body size toys (controlled)}
 bodySizeToys_lang.model <- lm(bodySizeToys_errorFree ~ spatialContingency_looking + 
-                                   spatialContingency_legs +
-                                   temporalContingency_looking +
-                                   temporalContingency_left +
-                                   temporalContingency_right +
-                                   reaching_arm +
-                                   reaching_head +
-                                   sensoryAttenuation_pos +
-                                   sensoryAttenuation_neg +
-                                   frakis_vocabulary, 
-                                 data = selfData_language)
+                                spatialContingency_legs +
+                                temporalContingency_looking +
+                                temporalContingency_left +
+                                temporalContingency_right +
+                                reaching_arm +
+                                reaching_head +
+                                sensoryAttenuation_pos +
+                                sensoryAttenuation_neg +
+                                frakis_vocabulary, 
+                              data = selfData_language)
 summary(bodySizeToys_lang.model)
 confint(bodySizeToys_lang.model)
+```
+
+```{r video-self recognition (controlled)}
+videoSelfRecognition.model <- glm(videoSelfRecognition ~ spatialContingency_looking + 
+                                    spatialContingency_legs +
+                                    temporalContingency_looking +
+                                    temporalContingency_left +
+                                    temporalContingency_right +
+                                    reaching_arm +
+                                    reaching_head +
+                                    sensoryAttenuation_pos +
+                                    sensoryAttenuation_neg +
+                                    frakis_vocabulary, 
+                                  data = selfData_language,
+                                  family = "binomial")
+summary(videoSelfRecognition.model)
+confint(videoSelfRecognition.model)
 ```
