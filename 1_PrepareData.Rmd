@@ -101,6 +101,7 @@ spatialContingencyData <- Result %>%
   tidyr::pivot_wider(names_from = view, values_from = c("looking_s", "legMovement_s")) %>%
   mutate(lookingScore = looking_s_mirrored/(looking_s_mirrored + looking_s_ego),
          legMovementScore = legMovement_s_mirrored/(legMovement_s_mirrored + legMovement_s_ego)) %>% #create contingency preference scores
+  mutate(legMovementScore_corrected = ifelse(is.na(legMovementScore), 0.5, legMovementScore)) %>%
   select(id, lookingScore, legMovementScore) %>%
   rename(spatialContingency_looking = lookingScore,
          spatialContingency_legs = legMovementScore)
@@ -149,10 +150,13 @@ bins_left_HbO <- data.frame(matrix(nrow = n_bins, ncol = 3))
 colnames(bins_left_HbO) <- c("bins", "t", "p")
 bins_left_HbO$bins <- 1:n_bins
 for (i in levels(fnirsData_binned$bins)){
-  currentTest <- fnirsData_binned %>%
+  currentData <- fnirsData_binned %>%
     filter(bins == i,
            hemisphere == "l") %>%
-    t.test(HbO ~ condition, data = ., paired = TRUE)
+    ungroup() %>%
+    select(subject, condition, HbO) %>%
+    tidyr::pivot_wider(names_from = "condition", values_from = "HbO")
+  currentTest <- t.test(currentData$delayed, currentData$online, paired = TRUE)
   bins_left_HbO[i, "p"] <- currentTest$p.value
   bins_left_HbO[i, "t"] <- currentTest$statistic
 }
@@ -182,10 +186,13 @@ bins_right_HbO <- data.frame(matrix(nrow = n_bins, ncol = 3))
 colnames(bins_right_HbO) <- c("bins","t", "p")
 bins_right_HbO$bins <- 1:n_bins
 for (i in levels(fnirsData_binned$bins)){
-  currentTest <- fnirsData_binned %>%
+  currentData <- fnirsData_binned %>%
     filter(bins == i,
            hemisphere == "r") %>%
-    t.test(HbO ~ condition, data = ., paired = TRUE)
+    ungroup() %>%
+    select(subject, condition, HbO) %>%
+    tidyr::pivot_wider(names_from = "condition", values_from = "HbO")
+  currentTest <- t.test(currentData$delayed, currentData$online, paired = TRUE)
   bins_right_HbO[i, "p"] <- currentTest$p.value
   bins_right_HbO[i, "t"] <- currentTest$statistic
 }
@@ -193,7 +200,7 @@ for (i in levels(fnirsData_binned$bins)){
 #compute difference score between conditions in significant time bins
 right_HbO_diff <- fnirsData_binned %>%
   filter(hemisphere == "r",
-         bins %in%  which(bins_left_HbO$p < 0.05)) %>%
+         bins %in%  which(bins_right_HbO$p < 0.05)) %>%
   group_by(subject, condition) %>%
   summarise(m_HbO = mean(HbO)) %>%
   select(subject, condition, m_HbO) %>%
@@ -333,7 +340,7 @@ bodySizeToysData <- allData %>%
   mutate(errorFree = ifelse(interest == 1, NA, errorFree)) %>% #exclude trials with interest too low
   select(id, toy, errorFree) %>%
   group_by(id) %>%
-  summarise(m_errorFree = mean(errorFree)) %>% #calculate proportion of trials without errors
+  summarise(m_errorFree = mean(errorFree, na.rm = T)) %>% #calculate proportion of trials without errors
   rename(bodySizeToys_errorFree = m_errorFree)
 
 rm(allData)
@@ -369,7 +376,7 @@ rm(cleandat)
 ## Placing Sticker on Self Data
 ```{r}
 library(dplyr)
-placingStickerData_buffer <- readxl::read_excel("Z:/Längsschnitt Selbst/Auswertung/T4/Placing/Coding_Placing_T4_StefanieKrammer.xlsx")
+placingStickerData_buffer <- readxl::read_excel("Z:/Längsschnitt Selbst/Auswertung/T4/Placing/Codings/Coding_Placing_T4_StefanieKrammer_corrected.xlsx")
 placingStickerData <- placingStickerData_buffer %>%
   mutate(correctPlace = ifelse(Placement == "of", 1, ifelse(Placement == -99, NA, 0))) %>% #check if correct placement (of = own face) or missing data
   select(ID, Type, correctPlace) %>%
@@ -382,20 +389,35 @@ placingStickerData <- placingStickerData_buffer %>%
 rm(placingStickerData_buffer)
 ```
 
+##Language Data
+```{r}
+library(dplyr)
+languageData_buffer <- readxl::read_excel("Z:/Längsschnitt Selbst/Auswertung/T4/Fragebögen/FRAKIS-K/FRAKIS-AUSWERTUNG.xlsx")
+languageData <- languageData_buffer %>%
+  select(`VP Code`, `Summe Wortschatz`) %>%
+  rename(id = `VP Code`,
+         frakis_vocabulary = `Summe Wortschatz`)
+
+rm(languageData_buffer)
+```
+
 ## Join all data
 ```{r}
-selfData <- merge(demographicData,
-                  merge(bodyAsObstacleData,
-                        merge(bodySizeDoorData,
-                              merge(bodySizeToysData,
-                                    merge(mirrorSelfRecognitionData,
-                                          merge(placingStickerData,
-                                                merge(reachingToSelfData,
-                                                      merge(selfUnderstandingData,
-                                                            merge(sensoryAttenuationData,
-                                                                  merge(spatialContingencyData,
-                                                                        merge(temporalContingencyData,
-                                                                              videoSelfRecognitionData,
+selfData <- merge(languageData, 
+                  merge(demographicData,
+                        merge(bodyAsObstacleData,
+                              merge(bodySizeDoorData,
+                                    merge(bodySizeToysData,
+                                          merge(mirrorSelfRecognitionData,
+                                                merge(placingStickerData,
+                                                      merge(reachingToSelfData,
+                                                            merge(selfUnderstandingData,
+                                                                  merge(sensoryAttenuationData,
+                                                                        merge(spatialContingencyData,
+                                                                              merge(temporalContingencyData,
+                                                                                    videoSelfRecognitionData,
+                                                                                    by = "id",
+                                                                                    all = TRUE),
                                                                               by = "id",
                                                                               all = TRUE),
                                                                         by = "id",
