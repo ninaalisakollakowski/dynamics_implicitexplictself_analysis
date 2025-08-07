@@ -324,48 +324,75 @@ CFI < .95 (0.639) -> bad
 
 ##perform EFA for implicit measures
 1) Bartlett's test to check if correlation matrix different from identity matrix (needs to be significant)
-```{r Bartlett}
-cortest.bartlett(correlation_implicit, n = nObservations) #significant -> proceed
+```{r Bartlett implicit}
+cortest.bartlett(correlation_implicit, n = nObservations)
+```
+test is significant -> proceed
+2) KMO >=.5, otherwise exclude variables with smallest KMO until criterion is reached
+```{r KMO implicit 1}
+KMO(correlation_implicit)
+
+#define correlation matrix for later analysis
+cur_correlation_implicit <- correlation_implicit
 ```
 
-2) KMO >=.5, otherwise exclude variables with smallest KMO until criterion is reached
-```{r KMO}
-KMO(correlation_implicit) #KMO = 0.46, exclude temporalContingency_left (0.41)
-correlation_implicit1 <- correlation_implicit[!rownames(correlation_implicit) == "temporalContingency_left",
-                                              !colnames(correlation_implicit) == "temporalContingency_left"]
+KMO = 0.46, exclude temporalContingency_left (0.41)
+
+```{r KMO implicit 2}
+#update correlation matrix without excluded variable
+cur_correlation_implicit <- cur_correlation_implicit[!rownames(cur_correlation_implicit) == "temporalContingency_left",
+                                              !colnames(cur_correlation_implicit) == "temporalContingency_left"]
+#list excluded variables
 excludedVariables_implicit_KMO <- list("temporalContingency_left")
-excludedVariables_implicit <- list("temporalContingency_left")
 
 #run KMO again
-KMO(correlation_implicit1) #KMO = 0.51 -> exclude reaching_head (0.43)
-correlation_implicit2 <- correlation_implicit1[!rownames(correlation_implicit1) == "reaching_head",
-                                              !colnames(correlation_implicit1) == "reaching_head"]
-excludedVariables_implicit_KMO <- append(excludedVariables_implicit_KMO, "reaching_head")
-excludedVariables_implicit <- append(excludedVariables_implicit, "reaching_head")
-
-KMO(correlation_implicit2) #KMO = 0.55, exclude sensoryAttenuation_neg (0.42)
-correlation_implicit3 <- correlation_implicit2[!rownames(correlation_implicit2) == "sensoryAttenuation_neg",
-                                              !colnames(correlation_implicit2) == "sensoryAttenuation_neg"]
-excludedVariables_implicit_KMO <- append(excludedVariables_implicit_KMO, "sensoryAttenuation_neg")
-excludedVariables_implicit <- append(excludedVariables_implicit, "sensoryAttenuation_neg")
-
-KMO(correlation_implicit3) #KMO = 0.59, all variables > 0.5
-
-cur_correlation_implicit <- correlation_implicit3
+KMO(cur_correlation_implicit)
 ```
+
+KMO = 0.51
+however, when proceeding from here, parallel analysis suggests 4 factors and EFA produces Heywood cases
+therefore now excluding variable with smallest KMO until all variables have KMO >= 0.5
+first, exclude reaching_head (0.43)
+
+```{r KMO implicit 3}
+#update correlation matrix without excluded variable
+cur_correlation_implicit <- cur_correlation_implicit[!rownames(cur_correlation_implicit) == "reaching_head",
+                                              !colnames(cur_correlation_implicit) == "reaching_head"]
+
+#list excluded variables
+excludedVariables_implicit_KMO <- append(excludedVariables_implicit_KMO, "reaching_head")
+
+#run KMO again
+KMO(cur_correlation_implicit)
+```
+
+overall KMO = 0.55, but still variables < 0.5
+exclude sensoryAttenuation_neg (0.42)
+
+```{r KMO implicit 4}
+#update correlation matrix without excluded variable
+cur_correlation_implicit <- cur_correlation_implicit[!rownames(cur_correlation_implicit) == "sensoryAttenuation_neg",
+                                              !colnames(cur_correlation_implicit) == "sensoryAttenuation_neg"]
+
+#list excluded variables
+excludedVariables_implicit_KMO <- append(excludedVariables_implicit_KMO, "sensoryAttenuation_neg")
+
+#run KMO again
+KMO(cur_correlation_implicit)
+```
+
+overall KMO = 0.59 & all variables > 0.5 -> proceed
 
 3) parallel analysis with reduced correlation matrix to decide number of factors
 
-```{r parallel analysis}
+```{r parallel analysis implicit}
 fa.parallel(cur_correlation_implicit, n.obs = nObservations, n.iter = 1000, fm = "ml", fa = "fa")
 ```
-parallel analysis suggests 4 factors -> Heywood case (probably overextraction of factors, Velicer & Fava, 1998)
-running with 3 factors -> Heywood case
-running with 2 factors -> solution 
+parallel analysis suggests 2 factors
 
 4) run EFA with principal axis factoring with oblique (direct oblimin) rotation
-```{r EFA}
-#run EFA with 3 factors as suggested by parallel analysis
+```{r EFA implicit}
+#run EFA with 2 factors as suggested by parallel analysis
 efa.implicit <- fa(cur_correlation_implicit, nfactors = 2, n.obs = nObservations, 
                    rotate = 'oblimin', fm = 'pa', max.iter = 1000)
 
@@ -375,12 +402,11 @@ print.psych(efa.implicit, cut = .4, digits=3, sort=TRUE)
 ```
 
 5) assign variables to factors with loadings of >=.4
-```{r assign to factors}
+```{r assign variables to implicit factors}
 #exclude variables that don't load on any factor with loading of >=.4
-excludedVariables_implicit <- append(excludedVariables_implicit, c("temporalContingency_looking",
+excludedVariables_implicit <- append(excludedVariables_implicit_KMO, c("temporalContingency_looking",
                                                                    "sensoryAttenuation_pos",
-                                                                   "temporalContingency_right",
-                                                                   "sensoryAttenuation_neg"))
+                                                                   "temporalContingency_right"))
 
 #extract factor loading from EFA
 relevantFactorLoadings_implicit <- efa.implicit$loadings
@@ -390,7 +416,7 @@ relevantFactorLoadings_implicit[abs(relevantFactorLoadings_implicit) < 0.4] <- 0
 ```
 
 6) calculate factor scores
-```{r factor scores}
+```{r implicit factor scores}
 #initialize lists for factor scores and all excluded variables
 factorScores_implicit <- vector("list", nImputations)
 otherVariables_implicit <- vector("list", nImputations)
@@ -426,37 +452,58 @@ implicitSelf <- implicitSelf %>%
 
 ## perform EFA for explicit measures
 1) Bartlett's test to check if correlation matrix different from identity matrix (needs to be significant)
-```{r Bartlett}
-cortest.bartlett(correlation_explicit, n = nObservations) #significant -> proceed
+```{r Bartlett explicit}
+cortest.bartlett(correlation_explicit, n = nObservations)
 ```
-
+test is significant -> proceed
 2) KMO >.5, otherwise exclude variables with smallest KMO until criterion is reached
-```{r KMO}
-KMO(correlation_explicit) #KMO = 0.52, however EFA produces Heywood case so excluding variables until all variables have individual KMO >=0.5 -> excluding bodyObstacle_errorFree (0.34)
-correlation_explicit1 <- correlation_explicit[!rownames(correlation_explicit) == "bodyObstacle_errorFree",
-                                              !colnames(correlation_explicit) == "bodyObstacle_errorFree"]
-excludedVariables_explicit_KMO <- list("bodyObstacle_errorFree")
-excludedVariables_explicit <- list("bodyObstacle_errorFree")
-
-KMO(correlation_explicit1) #KMO = 0.54, but multiple variables <.5 -> excluding bodySizeToys_errorFree (0.36)
-correlation_explicit2 <- correlation_explicit1[!rownames(correlation_explicit1) == "bodySizeToys_errorFree",
-                                              !colnames(correlation_explicit1) == "bodySizeToys_errorFree"]
-KMO(correlation_explicit2) #KMO = 0.65, all variables >0.5 -> proceed
-
-cur_correlation_explicit <- correlation_explicit2
-
+```{r KMO explicit 1}
+KMO(correlation_explicit)
+cur_correlation_explicit <- correlation_explicit
 ```
+KMO = 0.52, 
+however, when proceeding from here, parallel analysis suggests 4 factors and EFA produces Heywood cases
+therefore now excluding variable with smallest KMO until all variables have KMO >= 0.5
+first, exclude bodyObstacle_errorFree (0.34)
+
+```{r KMO explicit 2}
+#update correlation matrix without excluded variable
+cur_correlation_explicit <- cur_correlation_explicit[!rownames(cur_correlation_explicit) == "bodyObstacle_errorFree",
+                                              !colnames(cur_correlation_explicit) == "bodyObstacle_errorFree"]
+
+#list excluded variables
+excludedVariables_explicit_KMO <- list("bodyObstacle_errorFree")
+
+#run KMO again
+KMO(correlation_explicit1)
+```
+
+KMO = 0.54, but still one variable <.5 
+excluding bodySizeToys_errorFree (0.36)
+
+```{r KMO explicit 3}
+#update correlation matrix without excluded variable
+cur_correlation_explicit <- cur_correlation_explicit[!rownames(cur_correlation_explicit) == "bodySizeToys_errorFree",
+                                              !colnames(cur_correlation_explicit) == "bodySizeToys_errorFree"]
+
+#list excluded variables
+excludedVariables_explicit_KMO <- append(excludedVariables_explicit_KMO, "bodySizeToys_errorFree")
+
+#run KMO again
+KMO(cur_correlation_explicit)
+```
+KMO = 0.65 & all variables >0.5 -> proceed
 
 3) parallel analysis with reduced correlation matrix to decide number of factors
 
-```{r parallel analysis}
+```{r parallel analysis explicit}
 fa.parallel(cur_correlation_explicit, n.obs = nObservations, n.iter = 1000, fm = "ml", fa = "fa")
 ```
 parallel analysis 2 factors
 
 4) run EFA with principal axis factoring with oblique (direct oblimin) rotation
-```{r EFA}
-#run EFA with 3 factors as suggested by parallel analysis
+```{r EFA explicit}
+#run EFA with 2 factors as suggested by parallel analysis
 efa.explicit <- fa(cur_correlation_explicit, nfactors = 2, n.obs = nObservations, 
                    rotate = 'oblimin', fm = 'pa', max.iter = 1000)
 
@@ -466,7 +513,7 @@ print.psych(efa.explicit, cut = .4, digits=3, sort=TRUE)
 ```
 
 5) assign variables to factors with loadings of >=.4
-```{r assign to factors}
+```{r assign to explicit factors}
 #extract factor loading from EFA
 relevantFactorLoadings_explicit <- efa.explicit$loadings
 
@@ -475,7 +522,7 @@ relevantFactorLoadings_explicit[abs(relevantFactorLoadings_explicit) < 0.4] <- 0
 ```
 
 6) calculate factor scores
-```{r factor scores}
+```{r explicit factor scores}
 #initialize lists for factor scores and all excluded variables
 factorScores_explicit <- vector("list", nImputations)
 otherVariables_explicit <- vector("list", nImputations)
@@ -488,13 +535,13 @@ for (i in 1:nImputations){
   curDataset[dichotomousVariables] <- lapply(curDataset[dichotomousVariables], as.numeric)
   
   factorScore_buffer <- curDataset %>%
-    select(all_of(explicitSelfMeasures)) %>%
+    select(all_of(setdiff(explicitSelfMeasures, excludedVariables_explicit_KMO))) %>%
     factor.scores(x = ., relevantFactorLoadings_explicit)
   
   factorScores_explicit[[i]] <- factorScore_buffer$scores
   
   otherVariables_explicit[[i]] <- data.matrix(curDataset %>%
-                                                select(all_of(simplify2array(excludedVariables_explicit))))
+                                                select(all_of(simplify2array(excludedVariables_explicit_KMO))))
 }
 rm(factorScore_buffer)
 rm(curDataset)
@@ -521,48 +568,52 @@ selfData <- merge(implicitSelf, explicitSelf, by = "id")
 
 ```{r explicit factor 1}
 explicitFactor1.model <- lm(explicitFactor1 ~ implicitFactor1 + 
-                              implicitFactor2 + 
-                              implicitFactor3 + 
+                              implicitFactor2 +
+                              temporalContingency_left +
                               reaching_head +
-                              reaching_arm +
-                              temporalContingency_right + 
-                              sensoryAttenuation_pos, 
+                              sensoryAttenuation_neg + 
+                              temporalContingency_looking +
+                              sensoryAttenuation_pos +
+                              temporalContingency_right, 
                             data = selfData)
 summary(explicitFactor1.model)
 ```
 
 ```{r explicit factor 2}
 explicitFactor2.model <- lm(explicitFactor2 ~ implicitFactor1 + 
-                              implicitFactor2 + 
-                              implicitFactor3 + 
+                              implicitFactor2 +
+                              temporalContingency_left +
                               reaching_head +
-                              reaching_arm +
-                              temporalContingency_right + 
-                              sensoryAttenuation_pos,
+                              sensoryAttenuation_neg + 
+                              temporalContingency_looking +
+                              sensoryAttenuation_pos +
+                              temporalContingency_right,
                             data = selfData)
 summary(explicitFactor2.model)
 ```
 
 ```{r body obstacle}
 bodyObstacle.model <- lm(bodyObstacle_errorFree ~ implicitFactor1 + 
-                              implicitFactor2 + 
-                              implicitFactor3 + 
+                              implicitFactor2 +
+                              temporalContingency_left +
                               reaching_head +
-                              reaching_arm +
-                              temporalContingency_right + 
-                              sensoryAttenuation_pos,
+                              sensoryAttenuation_neg + 
+                              temporalContingency_looking +
+                              sensoryAttenuation_pos +
+                              temporalContingency_right,
                             data = selfData)
 summary(bodyObstacle.model)
 ```
 
 ```{r body size toys}
 bodySizeToys.model <- lm(bodySizeToys_errorFree ~ implicitFactor1 + 
-                              implicitFactor2 + 
-                              implicitFactor3 + 
+                              implicitFactor2 +
+                              temporalContingency_left +
                               reaching_head +
-                              reaching_arm +
-                              temporalContingency_right + 
-                              sensoryAttenuation_pos,
+                              sensoryAttenuation_neg + 
+                              temporalContingency_looking +
+                              sensoryAttenuation_pos +
+                              temporalContingency_right,
                             data = selfData)
 summary(bodySizeToys.model)
 ```
