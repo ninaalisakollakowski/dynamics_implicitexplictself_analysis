@@ -4,15 +4,20 @@ author: "Nina-Alisa Kollakowski"
 date: "`r Sys.Date()`"
 output: html_document
 ---
-## Demographic Data
 
-```{r}
+```{r initialize}
 library(dplyr)
-#load data from demographics questionnaire
-load("Z:/Längsschnitt Selbst/Auswertung/T1/Fragebögen/Demographics Questionnaire/demographicData.RData")
-demographicQuestionnaire <- overview %>%
+```
+
+## Demographic Data
+```{r}
+#read csv data
+demographicData_buffer <- read.csv("./Data/demographicData.csv")
+
+#prepare data frame
+demographicData <- demographicData_buffer %>%
   mutate(education_mother = Secondary_Education_Mother_num + Tertiary_Education_Mother_num,
-         education_father = Secondary_Education_Father_num + Tertiary_Education_Father_num) %>%
+         education_father = Secondary_Education_Father_num + Tertiary_Education_Father_num) %>% #add secondary and tertiary education scores of mother and father
   select(ID,
          education_mother,
          education_father,
@@ -21,124 +26,89 @@ demographicQuestionnaire <- overview %>%
          Marital_Status_num,
          Siblings_num,
          Primary_Language_Child_num,
-         Primary_Caretaker_num) %>%
-  rename(id = ID)
+         Primary_Caretaker_num,
+         age_T1_spatialContingency,
+         age_T1_temporalContingency,
+         age_T2_reaching,
+         age_T2_sensoryAttenuation,
+         age_T3)
 
-#load age data of child at each time point
-#T1: age of behavioral test, fNIRS, and sex
-ages_T1 <- readxl::read_excel(path = "Z:/Längsschnitt Selbst/Daten/T1/VollständigkeitDatensätze_T1.xlsx", sheet = "Übersicht")
-names(ages_T1) <- as.character(ages_T1[7,])
-ages_T1 <- ages_T1[8:126,]
-ages_T1 <- ages_T1 %>%
-  select(`Alter T1_a (Tage)`, `Alter T1_b (Tage)`, Geschlecht, `VP-Nr.`) %>%
-  rename(age_T1_spatialContingency = `Alter T1_a (Tage)`,
-         age_T1_temporalContingency = `Alter T1_b (Tage)`,
-         sex = Geschlecht,
-         id = `VP-Nr.`)
-ages_T1$id <- as.factor(ages_T1$id)
-ages_T1$age_T1_spatialContingency <- as.numeric(ages_T1$age_T1_spatialContingency)
-ages_T1$age_T1_temporalContingency <- as.numeric(ages_T1$age_T1_temporalContingency)
-ages_T1$sex <- as.factor(ages_T1$sex)
-
-#T2: age of behavioral test and EEG
-ages_T2 <- readxl::read_excel(path = "Z:/Längsschnitt Selbst/Daten/T2/VollständigkeitDatensätze_T2.xlsx", sheet = "Übersicht")
-names(ages_T2) <- as.character(ages_T2[4,])
-ages_T2 <- ages_T2[5:111,]
-ages_T2 <- ages_T2 %>%
-  select(`Alter T2_a (Tage)`, `Alter T2_b (Tage)`, `VP Code`) %>%
-  rename(age_T2_reaching = `Alter T2_a (Tage)`,
-         age_sensoryAttenuation = `Alter T2_b (Tage)`,
-         id = `VP Code`)
-ages_T2$id <- as.factor(ages_T2$id)
-ages_T2$age_T2_reaching <- as.numeric(ages_T2$age_T2_reaching)
-ages_T2$age_sensoryAttenuation <- as.numeric(ages_T2$age_sensoryAttenuation)
-
-#T4: age
-ages_T3 <- readxl::read_excel(path = "Z:/Längsschnitt Selbst/Daten/T4/VollständigkeitDatensätze_T4.xlsx", sheet = "Übersicht")
-names(ages_T3) <- as.character(ages_T3[4,])
-ages_T3 <- ages_T3[5:104,]
-ages_T3 <- ages_T3 %>%
-  select(`Alter T4 (Tage)`, `VP Code`) %>%
-  rename(age_T3 = `Alter T4 (Tage)`,
-         id = `VP Code`)
-ages_T3$id <- as.factor(ages_T3$id)
-ages_T3$age_T3 <- as.numeric(ages_T3$age_T3)
-
-demographicData <- merge(demographicQuestionnaire,
-                         merge(ages_T1,
-                               merge(ages_T2, 
-                                     ages_T3,
-                                     by = "id",
-                                     all = TRUE),
-                               by = "id",
-                               all = TRUE),
-                         by = "id",
-                         all = TRUE)
-rm(list = c("overview", 
-            "ages_T1",
-            "ages_T2",
-            "ages_T3",
-            "demographicQuestionnaire"))
-
+#define categorical variables as factors
 demographicData$Siblings_num <- as.factor(demographicData$Siblings_num)
 demographicData$Primary_Language_Child_num <- as.factor(demographicData$Primary_Language_Child_num)
 demographicData$Primary_Caretaker_num <- as.factor(demographicData$Primary_Caretaker_num)
 demographicData$sex <- as.factor(demographicData$sex)
 demographicData$Marital_Status_num <- as.factor(demographicData$Marital_Status_num)
 
+#remove temporary variables
+rm(demographicData_buffer)
 ```
 
 
 ## Spatial Contingency Data
 
 ```{r}
-load("Z:/Längsschnitt Selbst/Auswertung/T1/Body Ownership_Behavioural/RScripts/allData.RData")
-spatialContingencyData <- Result %>%
+#read csv data
+spatialContingencyData_buffer <- read.csv("./Data/spatialContingencyData.csv")
+
+#create contingency preference scores necessary for analysis
+spatialContingencyData <- spatialContingencyData_buffer %>%
   group_by(id, view) %>%
   summarise(looking_s = sum(lookingDuration),
             legMovement_s = sum(legMovementDuration)) %>% #sum data by condition
-  filter(view != "away") %>%
+  filter(view != "away") %>% #exclude times when child looks away from screen
   tidyr::pivot_wider(names_from = view, values_from = c("looking_s", "legMovement_s")) %>%
   mutate(lookingScore = looking_s_mirrored/(looking_s_mirrored + looking_s_ego),
          legMovementScore = legMovement_s_mirrored/(legMovement_s_mirrored + legMovement_s_ego)) %>% #create contingency preference scores
-  mutate(legMovementScore_corrected = ifelse(is.na(legMovementScore), 0.5, legMovementScore)) %>%
-  select(id, lookingScore, legMovementScore) %>%
+  mutate(legMovementScore_corrected = ifelse(is.na(legMovementScore), 0.5, legMovementScore)) %>% #correct instances, in which no leg contingency score could be created because of no leg movement -> make this 0.5
+  select(id, lookingScore, legMovementScore_corrected) %>%
   rename(spatialContingency_looking = lookingScore,
-         spatialContingency_legs = legMovementScore)
-rm(Result)
+         spatialContingency_legs = legMovementScore_corrected)
+
+#remove buffer data frame
+rm(spatialContingencyData_buffer)
 ```
+
 ## Temporal Contingency Data - Looking
 
 ```{r}
-library(dplyr)
-load("Z:/Längsschnitt Selbst/Auswertung/T1/fNIRS/AttentionCoding/lookingData.RData")
-temporalContingencyData_looking <- looking_data %>%
+#read csv data
+temporalContingencyData_looking_buffer <- read.csv("./Data/temporalContingencyLookingData.csv")
+
+#create contingency preference scores necessary for analysis
+temporalContingencyData_looking <- temporalContingencyData_looking_buffer %>%
   select(ID, condition, mean_looking) %>%
-  tidyr::pivot_wider(names_from = condition, values_from = mean_looking) %>% #create contingency preference score
-  mutate(lookingScore = delayed/(delayed + online)) %>%
+  tidyr::pivot_wider(names_from = condition, values_from = mean_looking) %>% 
+  mutate(lookingScore = delayed/(delayed + online)) %>% #create contingency preference score
   select(ID, lookingScore) %>%
   rename(id = ID,
          temporalContingency_looking = lookingScore)
-rm(looking_data)
+
+#remove buffer data frame
+rm(temporalContingencyData_looking_buffer)
 ```
 
 ## Temporal Contingency Data - fNIRS
 ```{r create time bins}
-library(dplyr)
-load("Z:/Längsschnitt Selbst/Auswertung/T1/fNIRS/RScripts/ROIData.RData")
-n_bins <- 10
+#read csv data
+fnirsData_ROI_long <- read.csv("./Data/temporalContingencyfNIRSData.csv")
+
 #create time bins and summarise data within these
+n_bins <- 10
 fnirsData_binned <- fnirsData_ROI_long %>%
   mutate(bins = ntile(time, n = n_bins)) %>%
   group_by(subject, condition, hemisphere, bins) %>%
   summarise(HbO = mean(HbO),
             HbR = mean(HbR))
+
+#label time bins, condition, and subject as factors for ANOVA to work correctly
 fnirsData_binned$bins <- as.factor(fnirsData_binned$bins)
-fnirsData_binned$condition <- droplevels(fnirsData_binned$condition)
+fnirsData_binned$condition <- as.factor(fnirsData_binned$condition)
+fnirsData_binned$subject <- as.factor(fnirsData_binned$subject)
 ```
 
 ```{r analyze left HbO}
-#ANOVA
+#ANOVA on HbO-data in left ROI (main effect of time, condition + interaction effect)
 timeAnova_left_HbO <- ez::ezANOVA(fnirsData_binned[fnirsData_binned$hemisphere == "l",],
                                   dv = HbO,
                                   wid = subject,
@@ -146,9 +116,12 @@ timeAnova_left_HbO <- ez::ezANOVA(fnirsData_binned[fnirsData_binned$hemisphere =
 print(timeAnova_left_HbO)
 
 #Post-Hoc T-Tests of time bins
+##initialize empty data frame for results
 bins_left_HbO <- data.frame(matrix(nrow = n_bins, ncol = 3))
 colnames(bins_left_HbO) <- c("bins", "t", "p")
 bins_left_HbO$bins <- 1:n_bins
+
+##compute t-tests between conditions for each time bin and save data
 for (i in levels(fnirsData_binned$bins)){
   currentData <- fnirsData_binned %>%
     filter(bins == i,
@@ -175,16 +148,20 @@ left_HbO_diff <- fnirsData_binned %>%
 ```
 
 ```{r analyze right HbO}
-#ANOVA HbO right hemisphere
+#ANOVA on HbO-data in right ROI (main effect of time, condition + interaction effect)
 timeAnova_right_HbO <- ez::ezANOVA(fnirsData_binned[fnirsData_binned$hemisphere == "r",],
                                    dv = HbO,
                                    wid = subject,
                                    within = c(bins, condition))
 print(timeAnova_right_HbO)
 
+#Post-Hoc T-Tests of time bins
+##initialize empty data frame for results
 bins_right_HbO <- data.frame(matrix(nrow = n_bins, ncol = 3))
 colnames(bins_right_HbO) <- c("bins","t", "p")
 bins_right_HbO$bins <- 1:n_bins
+
+##compute t-tests between conditions for each time bin and save data
 for (i in levels(fnirsData_binned$bins)){
   currentData <- fnirsData_binned %>%
     filter(bins == i,
@@ -211,29 +188,35 @@ right_HbO_diff <- fnirsData_binned %>%
 ```
 
 ```{r analyze left HbR}
+#ANOVA on HbR-data in left ROI (main effect of time, condition + interaction effect)
 timeAnova_left_HbR <- ez::ezANOVA(fnirsData_binned[fnirsData_binned$hemisphere == "l",],
                                   dv = HbR,
                                   wid = subject,
                                   within = c(bins, condition))
 print(timeAnova_left_HbR)
-#no significant effects of condition
+
+#no significant effects of condition - so no post-hoc tests necessary
 ```
 
 ```{r analyze right HbR}
-
+#ANOVA on HbR-data in right ROI (main effect of time, condition + interaction effect)
 timeAnova_right_HbR <- ez::ezANOVA(fnirsData_binned[fnirsData_binned$hemisphere == "r",],
                                    dv = HbR,
                                    wid = subject,
                                    within = c(bins, condition))
 print(timeAnova_right_HbR)
-#no significant effects of condition
+#no significant effects of condition - so no post-hoc tests necessary
 ```
+
 ```{r clean-up}
+#merge all temporal contingency data frames
 temporalContingencyData <- merge(temporalContingencyData_looking, 
                                  merge(left_HbO_diff, right_HbO_diff, by = "subject", all = TRUE),
                                  by.x = "id", by.y = "subject", all = TRUE) %>%
   rename(temporalContingency_left = leftHbOScore,
          temporalContingency_right = rightHbOScore)
+
+#remove temporary variables
 rm(list = c("n_bins", 
             "timeAnova_left_HbO", 
             "timeAnova_left_HbR", 
@@ -247,19 +230,21 @@ rm(list = c("n_bins",
             "currentTest",
             "fnirsData_binned",
             "fnirsData_ROI_long",
-            "i"))
+            "i",
+            "currentData"))
 ```
 
 ## Reaching to the Self Data
-
 ```{r}
-library(dplyr)
-load("Z:/Längsschnitt Selbst/Auswertung/T2/Reaching/RScripts/allData.RData")
-reachingToSelfData <- Result %>%
-  filter(!is.na(Contact_Success)) %>%
+#read csv data
+reachingToSelfData_buffer <- read.csv("./Data/reachingData.csv")
+
+#calculating proportion of trials with successful contact
+reachingToSelfData <- reachingToSelfData_buffer %>%
+  filter(Contact_Success != -99) %>% #exclude trials with no data (because excluded)
   group_by(ID, Target_Location_general) %>%
   summarise(n_trials = n(),
-            proportionContact = sum(Contact_Success)/n_trials) %>% #calculate proportion of trials with successful contact
+            proportionContact = sum(Contact_Success)/n_trials) %>% #calculate proportion of trials with successful contact for arm/head separately
   mutate(proportionContact = ifelse(n_trials < 2, NA, proportionContact)) %>% #exclude data if less than 2 trials contributed
   select(-n_trials) %>%
   tidyr::pivot_wider(names_from = Target_Location_general, values_from = proportionContact) %>%
@@ -267,75 +252,86 @@ reachingToSelfData <- Result %>%
          reaching_arm = arm,
          reaching_head = head)
 
-rm(Result)
+#remove temporary variable
+rm(reachingToSelfData_buffer)
 ```
 
 ## Sensory Attenuation (EEG) Data
 ```{r}
-sensoryAttenuationData_buffer <- read.csv("Z:/Längsschnitt Selbst/Auswertung/T2/EEG/Preprocessing_HAPPE/Trigger_SoundOnsetOhneAffe/ClusterBasedPermutationAnalysis_Fieldtrip/Significant_Clusters_ERP/meanClusterDifferences.csv")
+#read csv data
+sensoryAttenuationData_buffer <- read.csv("./Data/sensoryAttenuation.csv")
+
+#rename data for easier use
 sensoryAttenuationData <- sensoryAttenuationData_buffer %>%
   rename(id = ID,
          sensoryAttenuation_pos = posCluster,
          sensoryAttenuation_neg = negCluster)
 
+#remove temporary variable
 rm(sensoryAttenuationData_buffer)
 ```
 
 ## Mirror Self-Recognition Data
 ```{r}
-library(dplyr)
-mirrorSelfRecognitionData_buffer <- readxl::read_excel("Z:/Längsschnitt Selbst/Auswertung/T4/MirrorSelfRecognition/Hauptkodierung_LinaMöllen/Coding_MSR_T4_Lina_final_corrected.xlsx", na = "-99") %>%
-  select(ID, Recognition)
+#read csv data
+mirrorSelfRecognitionData_buffer <- read.csv("./Data/mirrorSelfRecognitionData.csv")
+
+#clean data frame
 mirrorSelfRecognitionData <- mirrorSelfRecognitionData_buffer %>%
+  filter(Recognition != -99) %>% #exclude trials without data
+  select(ID, Recognition) %>%
   rename(id = ID,
          mirrorSelfRecognition = Recognition)
 
+#remove temporary variable
 rm(mirrorSelfRecognitionData_buffer)
 ```
 
 ## Video Self-Recognition Data
 ```{r}
-library(dplyr)
-library(readxl)
-
 #load data from blind coding
-videoSelfRecognitionData_blind <- read_excel("Z:/Längsschnitt Selbst/Auswertung/T4/VideoSelfRecognition/Coding_ExcelFiles/Hauptkodierung_AshleyChay/T4_SelfRecognition_Ashley_final.xlsx")
+videoSelfRecognitionData_blind <- read.csv("./Data/videoSelfRecognitionData_blind.csv")
 
 #load condition data
-conditions <- read_excel("Z:/Längsschnitt Selbst/Auswertung/T4/VideoSelfRecognition/T4_SelfRecognition_Conditions.xlsx")
+conditions <- read.csv("./Data/videoSelfRecognitionData_conditions.csv")
 
 #merge together and only consider children that responded correctly in both conditions as recognizer
 videoSelfRecognitionData <- merge(videoSelfRecognitionData_blind, conditions, by.x = c("ID", "Condition"), by.y = c("ID", "Video")) %>%
-  select(ID, `self-recognition`, Condition.y) %>%
-  tidyr::pivot_wider(names_from = Condition.y, values_from = `self-recognition`) %>%
+  select(ID, self.recognition, Condition.y) %>%
+  tidyr::pivot_wider(names_from = Condition.y, values_from = self.recognition) %>%
   mutate(selfRecognition = ifelse(self == "y" & other == "n", 1, 0)) %>%
   select(ID, selfRecognition) %>%
   rename(id = ID,
          videoSelfRecognition = selfRecognition)
 
-#clean-up
-rm(conditions)
-rm(videoSelfRecognitionData_blind)
+#remove temporary variables
+rm(list = c("conditions",
+            "videoSelfRecognitionData_blind"))
 ```
 
 ## Body Size: Door Data
 ```{r}
-library(dplyr)
-load("Z:/Längsschnitt Selbst/Auswertung/T4/BodyAsObject/Door/RScripts/final_data_BodyAsObject_Door.RData")
-bodySizeDoorData <- all_results %>%
+#read csv data
+bodySizeDoorData_buffer <- read.csv("./Data/bodySizeDoorData.csv")
+
+#clean data frame
+bodySizeDoorData <- bodySizeDoorData_buffer %>%
   mutate(errorFree = ifelse(errors_binary == "Yes", 0, 1)) %>% #recode: 0 = error present, 1 = no errors
   select(ID, errorFree) %>%
   rename(id = ID,
          bodySizeDoor_errorFree = errorFree)
 
-rm(all_results)
+#remove temporary variables
+rm(bodySizeDoorData_buffer)
 ```
 
 ## Body Size: Toys Data
 ```{r}
-library(dplyr)
-load("Z:/Längsschnitt Selbst/Auswertung/T4/BodyAsObject/Toys/RScripts/allData.RData")
-bodySizeToysData <- allData %>%
+#read csv data
+bodySizeToysData_buffer <- read.csv("./Data/bodySizeToysData.csv")
+
+#prepare data frame
+bodySizeToysData <- bodySizeToysData_buffer %>%
   mutate(errorFree = ifelse(errors == 0, 1, 0)) %>% #check if trial without error (1) or with (0)
   mutate(errorFree = ifelse(interest == 1, NA, errorFree)) %>% #exclude trials with interest too low
   select(id, toy, errorFree) %>%
@@ -343,40 +339,49 @@ bodySizeToysData <- allData %>%
   summarise(m_errorFree = mean(errorFree, na.rm = T)) %>% #calculate proportion of trials without errors
   rename(bodySizeToys_errorFree = m_errorFree)
 
-rm(allData)
+#remove temporary variables
+rm(bodySizeToysData_buffer)
 ```
 
 ## Body as Obstacle data
 ```{r}
-library(dplyr)
-load("Z:/Längsschnitt Selbst/Auswertung/T4/BodyAsObject/Obstacle/RScripts/allData.RData")
-bodyAsObstacleData <- allData %>%
+#read csv data
+bodyAsObstacleData_buffer <- read.csv("./Data/bodyAsObstacleData.csv")
+
+#prepare data frame
+bodyAsObstacleData <- bodyAsObstacleData_buffer %>%
   mutate(errorFree = ifelse(errors_binary == "Yes", 0, 1)) %>% #recode: 0 = error present, 1 = no errors
   group_by(ID) %>%
   summarise(m_errorFree = mean(errorFree))%>% #calculate proportion of trials without errors
   rename(id = ID,
          bodyObstacle_errorFree = m_errorFree)
 
-rm(allData)
+#remove temporary variables
+rm(bodyAsObstacleData_buffer)
 ```
 
 ## Self-Understanding Questionnaire data
 ```{r}
-library(dplyr)
-load("Z:/Längsschnitt Selbst/Auswertung/T4/Fragebögen/UCLA/UCLA.RData")
-selfUnderstandingData <- cleandat %>%
-  mutate(passed = (self_description_rel + self_recognition_rel)/2) %>%
-  select(ID, passed) %>% #add proportion of passed items per scale and create average passed items
+#read csv data
+selfUnderstandingData_buffer <- read.csv("./Data/selfUnderstandingData.csv")
+
+#prepare data frame
+selfUnderstandingData <- selfUnderstandingData_buffer %>%
+  mutate(passed = (self_description_rel + self_recognition_rel)/2) %>% #sum proportion of passed items per scale and create average passed items
+  select(ID, passed) %>% 
   rename(id = ID,
          selfUnderstanding_passed = passed)
 
-rm(cleandat)
+#remove temporary variables
+rm(selfUnderstandingData_buffer)
 ```
 
 ## Placing Sticker on Self Data
 ```{r}
-library(dplyr)
-placingStickerData_buffer <- readxl::read_excel("Z:/Längsschnitt Selbst/Auswertung/T4/Placing/Codings/Coding_Placing_T4_StefanieKrammer_corrected.xlsx")
+#read csv data
+placingStickerData_buffer <- read.csv("./Data/placingStickerData.csv")
+
+#prepare data frame
 placingStickerData <- placingStickerData_buffer %>%
   mutate(correctPlace = ifelse(Placement == "of", 1, ifelse(Placement == -99, NA, 0))) %>% #check if correct placement (of = own face) or missing data
   select(ID, Type, correctPlace) %>%
@@ -386,18 +391,22 @@ placingStickerData <- placingStickerData_buffer %>%
   rename(id = ID,
          placing_correct = m_correctTrials)
 
+#remove temporary variables
 rm(placingStickerData_buffer)
 ```
 
 ##Language Data
 ```{r}
-library(dplyr)
-languageData_buffer <- readxl::read_excel("Z:/Längsschnitt Selbst/Auswertung/T4/Fragebögen/FRAKIS-K/FRAKIS-AUSWERTUNG.xlsx")
-languageData <- languageData_buffer %>%
-  select(`VP Code`, `Summe Wortschatz`) %>%
-  rename(id = `VP Code`,
-         frakis_vocabulary = `Summe Wortschatz`)
+#read csv data
+languageData_buffer <- read.csv("./Data/languageData.csv")
 
+#prepare data frame
+languageData <- languageData_buffer %>%
+  select(VP.Code, Summe.Wortschatz) %>%
+  rename(id = VP.Code,
+         frakis_vocabulary = Summe.Wortschatz)
+
+#remove temporary variables
 rm(languageData_buffer)
 ```
 

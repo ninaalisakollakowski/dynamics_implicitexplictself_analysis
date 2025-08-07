@@ -453,7 +453,6 @@ parallel analysis suggests 2 factors
 4) run EFA with principal axis factoring with oblique (direct oblimin) rotation
 ```{r EFA implicit}
 #run EFA with 3 factors as suggested by parallel analysis
->>>>>>> e33e061fd96f72ce14759acee9fb3df9e5f62544
 efa.implicit <- fa(cur_correlation_implicit, nfactors = 2, n.obs = nObservations, 
                    rotate = 'oblimin', fm = 'pa', max.iter = 1000)
 

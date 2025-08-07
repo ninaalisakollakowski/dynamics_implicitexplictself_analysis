@@ -5,4 +5,4 @@
 .Rdata
 .httr-oauth
 .DS_Store
-2_AnalyzeData_woCategorical.Rmd
+Data/
