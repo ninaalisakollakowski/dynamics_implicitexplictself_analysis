@@ -539,7 +539,7 @@ cur_correlation_explicit <- correlation_explicit_2
 
 #list excluded variables
 excludedVariables_explicit_KMO <- append(excludedVariables_explicit_KMO, "bodySizeToys_errorFree")
-excludedVariables_explicit <- append(excludedVariables_explicit, "bodySizeToys_errorFree")
+excludedVariables_explicit <- append(excludedVariables_explicit, "bodyObstacle_errorFree")
 
 #run KMO again
 KMO(cur_correlation_explicit)
@@ -567,11 +567,14 @@ print.psych(efa.explicit, digits=2, sort=TRUE)
 5) assign variables to factors with loadings of >=.39
 -> however, videoSelfRecognition also loads with .37, so loading this onto 2nd factor, too
 ```{r assign to explicit factors}
+#exclude variables that don't load on any factor with loading of >=.4
+excludedVariables_explicit <- append(excludedVariables_explicit, "videoSelfRecognition")
+
 #extract factor loading from EFA
 relevantFactorLoadings_explicit <- efa.explicit$loadings
 
 #replace loadings < .39 with 0 for correct calculation of factor scores
-relevantFactorLoadings_explicit[abs(relevantFactorLoadings_explicit) < 0.36] <- 0
+relevantFactorLoadings_explicit[abs(relevantFactorLoadings_explicit) < 0.39] <- 0
 ```
 
 6) calculate factor scores
@@ -594,7 +597,7 @@ for (i in 1:nImputations){
   factorScores_explicit[[i]] <- factorScore_buffer$scores
   
   otherVariables_explicit[[i]] <- data.matrix(curDataset %>%
-                                                select(all_of(simplify2array(excludedVariables_explicit))))
+                                                select(all_of(simplify2array(excludedVariables_explicit_KMO))))
 }
 rm(factorScore_buffer)
 rm(curDataset)
@@ -609,6 +612,11 @@ explicitSelf <- explicitSelf %>%
   rename(explicitFactor1 = PA1,
          explicitFactor2 = PA2) %>%
   mutate(id = 1:nObservations)
+
+#make dichotomous variables dichotomous as through averaging values are wrong
+explicitSelf <- explicitSelf %>%
+  mutate(videoSelfRecognition = videoSelfRecognition - 1) %>% #subtract one, as R turns factors into 1 and 2 values
+  mutate(videoSelfRecognition = ifelse(videoSelfRecognition < 0.5, 0, 1))
 ```
 
 
@@ -648,7 +656,6 @@ explicitFactor2.model <- lm(explicitFactor2 ~ spatialContingency_looking +
 summary(explicitFactor2.model)
 confint(explicitFactor2.model)
 ```
-
 ```{r body obstacle}
 bodyObstacle.model <- lm(bodyObstacle_errorFree ~ spatialContingency_looking + 
                            spatialContingency_legs +
@@ -677,6 +684,21 @@ bodySizeToys.model <- lm(bodySizeToys_errorFree ~ spatialContingency_looking +
                          data = selfData)
 summary(bodySizeToys.model)
 confint(bodySizeToys.model)
+```
+```{r video-self recognition}
+videoSelfRecognition.model <- glm(videoSelfRecognition ~ spatialContingency_looking + 
+                                    spatialContingency_legs +
+                                    temporalContingency_looking +
+                                    temporalContingency_left +
+                                    temporalContingency_right +
+                                    reaching_arm +
+                                    reaching_head +
+                                    sensoryAttenuation_pos +
+                                    sensoryAttenuation_neg, 
+                                  data = selfData,
+                                  family = "binomial")
+summary(videoSelfRecognition.model)
+confint(videoSelfRecognition.model)
 ```
 
 ##linear regressions controlled for language
@@ -730,7 +752,6 @@ explicitFactor2_lang.model <- lm(explicitFactor2 ~ spatialContingency_looking +
 summary(explicitFactor2_lang.model)
 confint(explicitFactor2_lang.model)
 ```
-
 ```{r body obstacle (controlled)}
 bodyObstacle_lang.model <- lm(bodyObstacle_errorFree ~ spatialContingency_looking + 
                                 spatialContingency_legs +
@@ -761,4 +782,21 @@ bodySizeToys_lang.model <- lm(bodySizeToys_errorFree ~ spatialContingency_lookin
                               data = selfData_language)
 summary(bodySizeToys_lang.model)
 confint(bodySizeToys_lang.model)
+```
+
+```{r video-self recognition (controlled)}
+videoSelfRecognition.model <- glm(videoSelfRecognition ~ spatialContingency_looking + 
+                                    spatialContingency_legs +
+                                    temporalContingency_looking +
+                                    temporalContingency_left +
+                                    temporalContingency_right +
+                                    reaching_arm +
+                                    reaching_head +
+                                    sensoryAttenuation_pos +
+                                    sensoryAttenuation_neg +
+                                    frakis_vocabulary, 
+                                  data = selfData_language,
+                                  family = "binomial")
+summary(videoSelfRecognition.model)
+confint(videoSelfRecognition.model)
 ```

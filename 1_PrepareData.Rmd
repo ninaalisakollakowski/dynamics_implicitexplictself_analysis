@@ -18,7 +18,8 @@ demographicData_buffer <- read.csv("./Data/demographicData.csv")
 demographicData <- demographicData_buffer %>%
   mutate(education_mother = Secondary_Education_Mother_num + Tertiary_Education_Mother_num,
          education_father = Secondary_Education_Father_num + Tertiary_Education_Father_num) %>% #add secondary and tertiary education scores of mother and father
-  select(ID,
+  select(id,
+         sex,
          education_mother,
          education_father,
          Age_Mother,
