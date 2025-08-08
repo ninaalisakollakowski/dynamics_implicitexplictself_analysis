@@ -1,0 +1,42 @@
+---
+title: "DescriptiveStatistics"
+author: "Nina-Alisa Kollakowski"
+date: "2025-08-08"
+output: html_document
+---
+
+```{r}
+library(dplyr)
+
+load("joinedSelfData.RData")
+
+selfMeasures <- c("spatialContingency_looking", 
+                  "spatialContingency_legs", 
+                  "temporalContingency_looking",
+                  "temporalContingency_left",
+                  "temporalContingency_right",
+                  "reaching_arm",
+                  "reaching_head",
+                  "sensoryAttenuation_pos",
+                  "sensoryAttenuation_neg",
+                  "mirrorSelfRecognition", 
+                  "videoSelfRecognition", 
+                  "bodySizeDoor_errorFree",
+                  "bodySizeToys_errorFree", 
+                  "bodyObstacle_errorFree", 
+                  "selfUnderstanding_passed", 
+                  "placing_correct")
+```
+
+```{r}
+currentData <- selfData %>%
+  select(all_of(selfMeasures)) %>%
+  summarise_all(list(m = ~ mean(., na.rm = TRUE),
+                     SD = ~ sd(., na.rm = TRUE),
+                     n = ~ sum(!is.na(.))))
+```
+
+```{r}
+cor.test(selfData$spatialContingency_looking, selfData$spatialContingency_legs)
+```
+
